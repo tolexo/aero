@@ -1,8 +1,8 @@
 package orm
 
 import (
-	"aero/db"
 	"github.com/jinzhu/gorm"
+	"github.com/thejackrabbit/aero/db"
 )
 
 var engines map[string]gorm.DB
@@ -12,12 +12,12 @@ func init() {
 }
 
 func Get(writable bool) gorm.DB {
-	connStr := db.GetConnString(writable)
+	connStr := db.GetDefaultMySqlConn(writable)
 	return getOrm(connStr)
 }
 
 func GetFromConf(container string) gorm.DB {
-	connStr := db.ParseConnStringFromConfig(container)
+	connStr := db.GetMySqlConnFromConfig(container)
 	return getOrm(connStr)
 }
 
@@ -30,8 +30,8 @@ func getOrm(connStr string) gorm.DB {
 		return ormObj
 	}
 	if ormObj, err = gorm.Open("mysql", connStr); err == nil {
-		if CustomInit != nil {
-			CustomInit(&ormObj)
+		if OrmInit != nil {
+			OrmInit(&ormObj)
 		}
 		engines[connStr] = ormObj
 		return engines[connStr]
@@ -40,7 +40,4 @@ func getOrm(connStr string) gorm.DB {
 	}
 }
 
-var CustomInit func(*gorm.DB) = func(o *gorm.DB) {
-	a := *o
-	a.SingularTable(true)
-}
+var OrmInit func(*gorm.DB)

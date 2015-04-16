@@ -1,35 +1,40 @@
 package db
 
 import (
-	"aero/conf"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/thejackrabbit/aero/conf"
 	"math/rand"
 	"net/url"
 )
 
-var writeConn string
-var readConn []string
-
 func init() {
-	initializeMasterConnection()
-	initializeSlaveConnections()
+	initMySql()
+	initMongo()
 }
 
-func initializeMasterConnection() {
+var connMySqlWrite string
+var connMySqlRead []string
+
+func initMySql() {
+	initMySqlMaster()
+	initMySqlSlaves()
+}
+
+func initMySqlMaster() {
 	lookup := "database.master"
 	if conf.Exists(lookup) {
-		writeConn = ParseConnStringFromConfig(lookup)
+		connMySqlWrite = GetMySqlConnFromConfig(lookup)
 	}
 }
 
-func initializeSlaveConnections() {
+func initMySqlSlaves() {
 	lookup := "database.slaves"
 	if conf.Exists(lookup) {
 		slaves := conf.StringSlice(lookup, []string{})
-		readConn = make([]string, len(slaves))
+		connMySqlRead = make([]string, len(slaves))
 		for i, container := range slaves {
-			readConn[i] = ParseConnStringFromConfig(container)
+			connMySqlRead[i] = GetMySqlConnFromConfig(container)
 		}
 	}
 }
@@ -42,33 +47,79 @@ func initializeSlaveConnections() {
 //   port:     3306
 //   db:       db-name
 //   timezone:
-func ParseConnStringFromConfig(container string) string {
+func GetMySqlConnFromConfig(container string) string {
 	if !conf.Exists(container) {
-		panic("Container not found")
+		panic("Container for mysql configuration not found")
 	}
 
-	username := conf.Get(container+".username", "")
-	password := conf.Get(container+".password", "")
-	host := conf.Get(container+".host", "")
-	port := conf.Get(container+".port", "")
-	db := conf.Get(container+".db", "")
-	timezone := conf.Get(container+".timezone", "")
+	username := conf.String(container+".username", "")
+	password := conf.String(container+".password", "")
+	host := conf.String(container+".host", "")
+	port := conf.String(container+".port", "")
+	db := conf.String(container+".db", "")
+	timezone := conf.String(container+".timezone", "")
 
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=%s",
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=%s",
 		username, password,
 		host, port, db,
-		url.QueryEscape(timezone.(string)),
+		url.QueryEscape(timezone),
 	)
 }
 
-func GetConnString(write bool) string {
+func GetDefaultMySqlConn(write bool) string {
 	if write {
-		return writeConn
+		return connMySqlWrite
 	}
 
-	if readConn == nil || len(readConn) == 0 {
-		return writeConn
+	if connMySqlRead == nil || len(connMySqlRead) == 0 {
+		return connMySqlWrite
 	}
 
-	return readConn[rand.Intn(len(readConn))]
+	return connMySqlRead[rand.Intn(len(connMySqlRead))]
+}
+
+var connMongo string
+
+func initMongo() {
+	lookup := "database.mongo"
+	if conf.Exists(lookup) {
+		connMongo = GetMongoConnFromConfig(lookup)
+	}
+}
+
+func GetDefaultMongoConn() string {
+	return connMongo
+}
+
+func GetMongoConnFromConfig(container string) string {
+	if !conf.Exists(container) {
+		panic("Container for mongo configuration not found")
+	}
+
+	username := conf.String(container+".username", "")
+	password := conf.String(container+".password", "")
+	host := conf.String(container+".host", "")
+	port := conf.String(container+".port", "")
+	db := conf.String(container+".db", "")
+	replicas := conf.String(container+".replicas", "")
+	options := conf.String(container+".options", "")
+
+	if port != "" {
+		port = ":" + port
+	}
+	if replicas != "" {
+		replicas = "," + replicas
+	}
+	if options != "" {
+		options = "?" + options
+	}
+	auth := ""
+	if username != "" || password != "" {
+		auth = username + ":" + password + "@"
+	}
+
+	return fmt.Sprintf("mongodb://%s%s%s%s/%s%s",
+		auth, host, port, replicas,
+		db, options,
+	)
 }
