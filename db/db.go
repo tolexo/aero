@@ -79,16 +79,18 @@ func GetDefaultMySqlConn(write bool) string {
 }
 
 var connMongo string
+var dbMongo string
 
 func initMongo() {
 	lookup := "database.mongo"
 	if conf.Exists(lookup) {
 		connMongo = GetMongoConnFromConfig(lookup)
+		dbMongo = conf.String("database.mongo.db", "")
 	}
 }
 
-func GetDefaultMongoConn() string {
-	return connMongo
+func GetDefaultMongoConn() (string, string) {
+	return connMongo, dbMongo
 }
 
 func GetMongoConnFromConfig(container string) string {
