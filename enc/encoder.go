@@ -17,7 +17,6 @@ func List() []string {
 }
 
 func FromConfig(key string) Encoder {
-
 	eType := conf.String(key, "")
 	panik.If(eType == "", "encoding not specified @ "+key)
 
