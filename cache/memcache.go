@@ -2,12 +2,13 @@ package cache
 
 import (
 	"github.com/kklis/gomemcache"
+	"github.com/thejackrabbit/aero/conf"
 	"github.com/thejackrabbit/aero/enc"
 	"github.com/thejackrabbit/aero/panik"
 	"time"
 )
 
-func NewMemcacheCache(host string, port int, enc enc.Encoder) Cacher {
+func NewMemcache(host string, port int, enc enc.Encoder) Cacher {
 
 	serv, err := gomemcache.Connect(host, port)
 	panik.On(err)
@@ -19,6 +20,23 @@ func NewMemcacheCache(host string, port int, enc enc.Encoder) Cacher {
 		},
 	}
 	return m
+}
+
+// memcache:
+// - host
+// - port
+// - encoding
+func MemcacheFromConfig(container string) Cacher {
+	host := conf.String(container+".host", "")
+	panik.If(host == "", "memcache host not specified")
+
+	port := conf.Int(container+".port", 0)
+	panik.If(port == 0, "memcache port not specified")
+
+	encd := enc.FromConfig(container + ".encoding")
+	panik.If(encd == nil, "memcache encoding not specified")
+
+	return NewMemcache(host, port, encd)
 }
 
 type memcacheCache struct {
@@ -36,7 +54,7 @@ func (c memcacheCache) Get(key string) (interface{}, error) {
 	j, _, err := c.mc.Get(c.Index(key))
 	if err != nil {
 		return nil, err
+	} else {
+		return c.Encoder.Decode(j)
 	}
-
-	return c.Encoder.Decode(j)
 }
