@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/thejackrabbit/aero/conf"
 	"github.com/thejackrabbit/aero/panik"
-	"github.com/vmihailenco/msgpack"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 type Encoder interface {
