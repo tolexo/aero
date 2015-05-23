@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	goc "github.com/pmylund/go-cache"
 	"github.com/thejackrabbit/aero/conf"
 	"github.com/thejackrabbit/aero/enc"
 	"github.com/thejackrabbit/aero/panik"
@@ -24,7 +25,7 @@ func NewInmemCache(enc enc.Encoder, r string, w string) Cacher {
 	}
 
 	return inmemCache{
-		m: make(map[string]interface{}),
+		c: goc.New(3*time.Minute, 1*time.Minute),
 		CacheBase: CacheBase{
 			Encoder: enc,
 		},
@@ -52,7 +53,7 @@ func InmemFromConfig(container string) Cacher {
 // to specified files.
 type inmemCache struct {
 	CacheBase
-	m map[string]interface{}
+	c *goc.Cache
 	r *os.File
 	w *os.File
 }
@@ -62,14 +63,14 @@ func (c inmemCache) Set(key string, i interface{}, expireIn time.Duration) {
 	panik.On(err)
 
 	k := c.Index(key)
-	c.m[k] = j
+	c.c.Set(k, j, expireIn)
 
 	go c.logSet(k, j)
 }
 
 func (c inmemCache) Get(key string) (interface{}, error) {
 	k := c.Index(key)
-	if j, ok := c.m[k]; ok {
+	if j, ok := c.c.Get(k); ok {
 		b := j.([]byte)
 		go c.logGet(k, b)
 		return c.CacheBase.Encoder.Decode(b)
