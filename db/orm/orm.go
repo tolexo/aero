@@ -29,9 +29,13 @@ func getOrm(connStr string) gorm.DB {
 	if ormObj, ok = engines[connStr]; ok {
 		return ormObj
 	}
+	// http://go-database-sql.org/accessing.html
+	// the sql.DB object is designed to be long-lived
 	if ormObj, err = gorm.Open("mysql", connStr); err == nil {
-		if OrmInit != nil {
-			OrmInit(&ormObj)
+		if ormInit != nil {
+			for _, fn := range ormInit {
+				fn(&ormObj)
+			}
 		}
 		engines[connStr] = ormObj
 		return engines[connStr]
@@ -40,4 +44,13 @@ func getOrm(connStr string) gorm.DB {
 	}
 }
 
-var OrmInit func(*gorm.DB)
+// orm initializers
+var ormInit []func(*gorm.DB)
+
+func DoOrmInit(fn func(*gorm.DB)) {
+	// TODO: use mutex
+	if ormInit == nil {
+		ormInit = make([]func(*gorm.DB), 0)
+	}
+	ormInit = append(ormInit, fn)
+}
