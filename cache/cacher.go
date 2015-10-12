@@ -25,6 +25,9 @@ func FromConfig(container string) (out Cacher) {
 	case "memcache":
 		out = MemcacheFromConfig(container)
 
+	case "redis":
+		out = RedisFromConfig(container)
+
 	case "inmem":
 		out = InmemFromConfig(container)
 
