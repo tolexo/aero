@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"github.com/thejackrabbit/aero/conf"
-	"github.com/thejackrabbit/aero/panik"
+	"github.com/tolexo/aero/conf"
+	"github.com/tolexo/aero/panik"
 	"os"
 	"time"
 )
