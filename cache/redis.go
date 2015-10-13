@@ -37,7 +37,7 @@ func RedisFromConfig(container string) Cacher {
 	port := conf.Int(container+".port", 0)
 	panik.If(port == 0, "redis port not specified")
 
-	db := conf.Int(container+ "db", 0)
+	db := conf.Int(container+".db", 0)
 
 	return NewRedis(host, port, db)
 }
