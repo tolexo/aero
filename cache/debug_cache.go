@@ -64,11 +64,6 @@ func (c debugCache) Get(key string) ([]byte, error) {
 	}
 }
 
-func (c debugCache) DeleteKeyPattern(key string) ([]byte, error) {
-	//TODO implement it
-	return nil, nil
-}
-
 var newLine string = "\r\n"
 
 func (c debugCache) writeGetLog(k string, b []byte) {
