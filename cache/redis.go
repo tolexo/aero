@@ -54,3 +54,17 @@ func (rd redisStore) Get(key string) ([]byte, error) {
 		return data, nil
 	}
 }
+
+func (rd redisStore) DeleteKeyPattern(key string) ([]byte, error) {
+	fmt.Println(rd.r.Keys(key))
+	keys := rd.r.Keys(key).Val()
+	var err error
+	for _, key := range keys {
+		err = rd.r.Del(key).Err()
+	}
+	if err == nil {
+		return []byte("success"), err
+	} else {
+		return []byte("error deleting cache keys"), nil
+	}
+}
