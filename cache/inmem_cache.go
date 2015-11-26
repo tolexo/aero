@@ -35,8 +35,3 @@ func (c inmemCache) Get(key string) ([]byte, error) {
 		return nil, errors.New("key not found in inmem cache: " + key)
 	}
 }
-
-func (c inmemCache) DeleteKeyPattern(key string) ([]byte, error) {
-	//TODO implement it
-	return nil, nil
-}

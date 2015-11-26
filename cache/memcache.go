@@ -47,8 +47,3 @@ func (c memCache) Get(key string) ([]byte, error) {
 		return data, nil
 	}
 }
-
-func (c memCache) DeleteKeyPattern(key string) ([]byte, error) {
-	//TODO implement it
-	return nil, nil
-}
