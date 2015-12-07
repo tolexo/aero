@@ -19,8 +19,10 @@ func init() {
 func loadDefaultConfig() {
 	configuration = confer.NewConfig()
 	seek := []string{
+		"production.yaml",
 		"dev.yaml",
 		"config.yaml",
+		"./config/production.yaml",
 		"./config/dev.yaml",
 		"./config/config.yaml",
 	}
