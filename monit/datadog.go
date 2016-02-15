@@ -1,42 +1,73 @@
-package datadog
+package monit
 
 import (
-"fmt"
-"github.com/ooyala/go-dogstatsd"
+	"errors"
+	"github.com/ooyala/go-dogstatsd"
+	"github.com/tolexo/aero/conf"
+	"sync"
+)
+
+var agentObj *DataDogAgent
+var once sync.Once
+
+type DataDogAgent struct {
+	Client *dogstatsd.Client
 }
 
-
-type DataDogConf struct {
-	Host     string
-	Port     string
-	Nameapce string
-}
-
-type Datadog struct {
-	client *dogstatsd.Client
-}
-
-var datadogObj *Datadog
-
-func GetInstance() *Datadog {
-	if datadogObj == nil {
-		//create data dog client connection
-		c, err := dogstatsd.New("127.0.0.1:8125")
-		if err != nil {
-			fmt.Println("Could not connect to Datadog Agent", err)
-		}
-		//set NameSpace
-		c.Namespace = "txRapid"
-
-		//set tags
-		var rTags []string
-		rTags = append(rTags, "Rapid")
-		c.Tags = rTags 
-
-
-		datadogObj = new(Datadog)
-		datadogObj.client = c
-
+func (d *DataDogAgent) CleintExists() (exists bool) {
+	if d.Client != nil {
+		exists = true
 	}
-	return client
+	return
+}
+
+func (d *DataDogAgent) Close() {
+	d.Client.Close()
+}
+
+func (d *DataDogAgent) Count(name string, value int64, tags []string, rate float64) (err error) {
+	exists := d.CleintExists()
+	if exists {
+		err = d.Client.Count(name, value, tags, rate)
+	}
+	return
+}
+
+func (d *DataDogAgent) Histogram(name string, value float64, tags []string, rate float64) (err error) {
+	exists := d.CleintExists()
+	if exists {
+		err = d.Client.Histogram(name, value, tags, rate)
+	}
+	return
+}
+
+//TODO: handle errnous cases
+func GetDataDogAgent() *DataDogAgent {
+	once.Do(func() {
+		agentObj = new(DataDogAgent)
+		var errObj error
+		enabled := conf.Bool("monitor.enabled", false)
+		if enabled && agentObj.CleintExists() == false {
+			host := conf.String("monitor.host", "")
+			port := conf.String("monitor.port", "")
+			if host == "" || port == "" {
+				errObj = errors.New("Datadog config host and port missing")
+			} else {
+				client, err := dogstatsd.New(host + ":" + port)
+				if err != nil {
+					errObj = err
+				} else {
+					namespace := conf.String("monitor.namespace", "")
+					if namespace != "" {
+						client.Namespace = namespace
+					}
+					agentObj.Client = client
+				}
+			}
+		}
+		if errObj != nil {
+			//log error message
+		}
+	})
+	return agentObj
 }
