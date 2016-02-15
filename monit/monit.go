@@ -65,7 +65,6 @@ func ModRecorder() func(http.Handler) http.Handler {
 			w.WriteHeader(rec.Code)
 			w.Write(rec.Body.Bytes())
 			dur := time.Since(start).Seconds() * 1000
-			fmt.Println("Time taken by request, Header code, time interval: ", dur, rec.Code, GetTimeIntervalTag(int64(dur)))
 
 			dataDogAgent := GetDataDogAgent()
 			dataDogAgent.Histogram("APICall", dur, GetTimeIntervalTag(int64(dur)), 1)
