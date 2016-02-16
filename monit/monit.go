@@ -64,11 +64,17 @@ func ModRecorder() func(http.Handler) http.Handler {
 			w.Header().Set("Content-Length", strconv.Itoa(len))
 			w.WriteHeader(rec.Code)
 			w.Write(rec.Body.Bytes())
-			dur := time.Since(start).Seconds() * 1000
 
+			dur := time.Since(start).Seconds() * 1000
+			intervalTag := GetTimeIntervalTag(int64(dur))
+			statusCode := FormatHttpStatusCode(int64(rec.Code))
+			//TODO: Remove debugging info post qa verification
+			fmt.Println("Datadog data:", dur, intervalTag, statusCode)
 			dataDogAgent := GetDataDogAgent()
-			dataDogAgent.Histogram("APICall", dur, GetTimeIntervalTag(int64(dur)), 1)
-			dataDogAgent.Count(FormatHttpStatusCode(int64(rec.Code)), 1, nil, 1)
+			dataDogAgent.Count("throughput", 1, nil, 1)
+			dataDogAgent.Count(statusCode, 1, nil, 1)
+			dataDogAgent.Histogram("resptime", dur, nil, 1)
+			dataDogAgent.Histogram("resptimeinterval", dur, intervalTag, 1)
 
 		})
 	}
