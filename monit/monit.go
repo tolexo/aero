@@ -23,14 +23,14 @@ func FormatHttpStatusCode(httpStatusCode int64) string {
 	return "http_" + strconv.FormatInt(httpStatusCode, 10)
 }
 
-func GetTimeIntervalTag(respTime int64) (ret []string) {
+func GetTimeIntervalTag(respTime float64) (ret []string) {
 	interval := conf.String("monitor.interval", "")
 	if interval != "" {
 		intervalArr := strings.Split(interval, ",")
-		var lowerLimit, higherLimit int64
+		var lowerLimit, higherLimit float64
 		var matched bool
 		for i := range intervalArr {
-			higherLimit, _ = strconv.ParseInt(intervalArr[i], 10, 64)
+			higherLimit, _ = strconv.ParseFloat(intervalArr[i], 64)
 			if respTime <= higherLimit {
 				matched = true
 				break
@@ -40,9 +40,9 @@ func GetTimeIntervalTag(respTime int64) (ret []string) {
 		}
 		var intervalGroup string
 		if matched == true {
-			intervalGroup = "from_" + strconv.FormatInt(lowerLimit, 10) + "_to_" + strconv.FormatInt(higherLimit, 10)
+			intervalGroup = "from_" + strconv.FormatInt(int64(lowerLimit), 10) + "_to_" + strconv.FormatInt(int64(higherLimit), 10)
 		} else {
-			intervalGroup = "above_" + strconv.FormatInt(higherLimit, 10)
+			intervalGroup = "above_" + strconv.FormatInt(int64(higherLimit), 10)
 		}
 		ret = append(ret, intervalGroup)
 	}
@@ -65,16 +65,18 @@ func ModRecorder() func(http.Handler) http.Handler {
 			w.WriteHeader(rec.Code)
 			w.Write(rec.Body.Bytes())
 
-			dur := time.Since(start).Seconds() * 1000
-			intervalTag := GetTimeIntervalTag(int64(dur))
-			statusCode := FormatHttpStatusCode(int64(rec.Code))
-			//TODO: Remove debugging info post qa verification
-			fmt.Println("Datadog data:", dur, intervalTag, statusCode)
-			dataDogAgent := GetDataDogAgent()
-			dataDogAgent.Count("throughput", 1, nil, 1)
-			dataDogAgent.Count(statusCode, 1, nil, 1)
-			dataDogAgent.Histogram("resptime", dur, nil, 1)
-			dataDogAgent.Histogram("resptimeinterval", dur, intervalTag, 1)
+			go func() {
+				dur := time.Since(start).Seconds() * 1000
+				intervalTag := GetTimeIntervalTag(float64(dur))
+				statusCode := FormatHttpStatusCode(int64(rec.Code))
+				//TODO: Remove debugging info post qa verification
+				fmt.Println("Datadog data:", dur, intervalTag, statusCode)
+				dataDogAgent := GetDataDogAgent()
+				dataDogAgent.Count("throughput", 1, nil, 1)
+				dataDogAgent.Count(statusCode, 1, nil, 1)
+				dataDogAgent.Histogram("resptime", dur, nil, 1)
+				dataDogAgent.Histogram("resptimeinterval", dur, intervalTag, 1)
+			}()
 
 		})
 	}
