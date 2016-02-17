@@ -14,7 +14,7 @@ type DataDogAgent struct {
 	Client *dogstatsd.Client
 }
 
-func (d *DataDogAgent) CleintExists() (exists bool) {
+func (d *DataDogAgent) ClientExists() (exists bool) {
 	if d.Client != nil {
 		exists = true
 	}
@@ -26,7 +26,7 @@ func (d *DataDogAgent) Close() {
 }
 
 func (d *DataDogAgent) Count(name string, value int64, tags []string, rate float64) (err error) {
-	exists := d.CleintExists()
+	exists := d.ClientExists()
 	if exists {
 		err = d.Client.Count(name, value, tags, rate)
 	}
@@ -34,7 +34,7 @@ func (d *DataDogAgent) Count(name string, value int64, tags []string, rate float
 }
 
 func (d *DataDogAgent) Histogram(name string, value float64, tags []string, rate float64) (err error) {
-	exists := d.CleintExists()
+	exists := d.ClientExists()
 	if exists {
 		err = d.Client.Histogram(name, value, tags, rate)
 	}
@@ -47,7 +47,7 @@ func GetDataDogAgent() *DataDogAgent {
 		agentObj = new(DataDogAgent)
 		var errObj error
 		enabled := conf.Bool("monitor.enabled", false)
-		if enabled && agentObj.CleintExists() == false {
+		if enabled && agentObj.ClientExists() == false {
 			host := conf.String("monitor.host", "")
 			port := conf.String("monitor.port", "")
 			if host == "" || port == "" {
