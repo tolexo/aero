@@ -3,11 +3,8 @@ package monit
 import (
 	"fmt"
 	"github.com/tolexo/aero/conf"
-	"github.com/tolexo/aero/panik"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -72,11 +69,6 @@ func ModRecorder() func(http.Handler) http.Handler {
 				dur := time.Since(start).Seconds() * 1000
 				intervalTag := GetTimeIntervalTag(float64(dur))
 				statusCode := FormatHttpStatusCode(int64(rec.Code))
-				//TODO: Remove debugging info post qa verification
-				f, err := os.OpenFile("datadog_event.csv", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-				panik.On(err)
-				l := log.New(f, "", log.LstdFlags)
-				l.Printf("%s %f %s", statusCode, dur, intervalTag)
 
 				dataDogAgent := GetDataDogAgent()
 				dataDogAgent.Count("throughput", 1, nil, 1)
