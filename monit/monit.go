@@ -10,6 +10,42 @@ import (
 	"time"
 )
 
+type MonitorParams struct {
+	ServiceId    string
+	RespTime     float64
+	ResponseCode int64
+	CacheHit     bool
+}
+
+func MonitorMe(params MonitorParams) {
+	fmt.Println("params", params)
+
+	if params.ServiceId != "" {
+		dataDogAgent := GetDataDogAgent()
+
+		dataDogAgent.Count("throughput", 1, nil, 1)
+		dataDogAgent.Count(params.ServiceId, 1, nil, 1)
+
+		dataDogAgent.Histogram("resptime", params.RespTime, nil, 1)
+		dataDogAgent.Histogram(params.ServiceId+".resptime", params.RespTime, nil, 1)
+
+		intervalTag := GetTimeIntervalTag(params.RespTime)
+		dataDogAgent.Histogram("resptimeinterval", params.RespTime, intervalTag, 1)
+		dataDogAgent.Histogram(params.ServiceId+".resptimeinterval", params.RespTime, intervalTag, 1)
+
+		if params.CacheHit {
+			dataDogAgent.Count("cachehit", 1, nil, 1)
+			dataDogAgent.Count(params.ServiceId+".cachehit", 1, nil, 1)
+		}
+
+		if params.ResponseCode > 0 {
+			statusCode := FormatHttpStatusCode(int64(params.ResponseCode))
+			dataDogAgent.Count(statusCode, 1, nil, 1)
+			dataDogAgent.Count(params.ServiceId+"."+statusCode, 1, nil, 1)
+		}
+	}
+}
+
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(404)
 	fmt.Fprintf(w, "%s", "4041 page not found")
