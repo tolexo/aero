@@ -18,8 +18,6 @@ type MonitorParams struct {
 }
 
 func MonitorMe(params MonitorParams) {
-	fmt.Println("params", params)
-
 	if params.ServiceId != "" {
 		dataDogAgent := GetDataDogAgent()
 
