@@ -3,8 +3,11 @@ package monit
 import (
 	"fmt"
 	"github.com/tolexo/aero/conf"
+	"github.com/tolexo/aero/panik"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +43,19 @@ func MonitorMe(params MonitorParams) {
 			statusCode := FormatHttpStatusCode(int64(params.ResponseCode))
 			dataDogAgent.Count(statusCode, 1, nil, 1)
 			dataDogAgent.Count(params.ServiceId+"."+statusCode, 1, nil, 1)
+		}
+
+		enablelog := conf.Bool("monitor.enablelog", false)
+		if enablelog {
+			logfile := conf.String("monitor.filelog", "")
+			if logfile != "" {
+				t := time.Now()
+				logfileSuffix := fmt.Sprintf("%d-%d-%d", t.Month(), t.Day(), t.Hour())
+				f, err := os.OpenFile(logfile+logfileSuffix+".csv", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+				panik.On(err)
+				l := log.New(f, "", log.LstdFlags)
+				l.Printf("%s %f %s %d %t", params.ServiceId, params.RespTime, intervalTag, params.ResponseCode, params.CacheHit)
+			}
 		}
 	}
 }
