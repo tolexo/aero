@@ -3,12 +3,62 @@ package monit
 import (
 	"fmt"
 	"github.com/tolexo/aero/conf"
+	"github.com/tolexo/aero/panik"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type MonitorParams struct {
+	ServiceId    string
+	RespTime     float64
+	ResponseCode int64
+	CacheHit     bool
+}
+
+func MonitorMe(params MonitorParams) {
+	if params.ServiceId != "" {
+		dataDogAgent := GetDataDogAgent()
+
+		dataDogAgent.Count("throughput", 1, nil, 1)
+		dataDogAgent.Count(params.ServiceId, 1, nil, 1)
+
+		dataDogAgent.Histogram("resptime", params.RespTime, nil, 1)
+		dataDogAgent.Histogram(params.ServiceId+".resptime", params.RespTime, nil, 1)
+
+		intervalTag := GetTimeIntervalTag(params.RespTime)
+		dataDogAgent.Histogram("resptimeinterval", params.RespTime, intervalTag, 1)
+		dataDogAgent.Histogram(params.ServiceId+".resptimeinterval", params.RespTime, intervalTag, 1)
+
+		if params.CacheHit {
+			dataDogAgent.Count("cachehit", 1, nil, 1)
+			dataDogAgent.Count(params.ServiceId+".cachehit", 1, nil, 1)
+		}
+
+		if params.ResponseCode > 0 {
+			statusCode := FormatHttpStatusCode(int64(params.ResponseCode))
+			dataDogAgent.Count(statusCode, 1, nil, 1)
+			dataDogAgent.Count(params.ServiceId+"."+statusCode, 1, nil, 1)
+		}
+
+		enablelog := conf.Bool("monitor.enablelog", false)
+		if enablelog {
+			logfile := conf.String("monitor.filelog", "")
+			if logfile != "" {
+				t := time.Now()
+				logfileSuffix := fmt.Sprintf("%d-%d-%d", t.Month(), t.Day(), t.Hour())
+				f, err := os.OpenFile(logfile+logfileSuffix+".csv", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+				panik.On(err)
+				l := log.New(f, "", log.LstdFlags)
+				l.Printf("%s %f %s %d %t", params.ServiceId, params.RespTime, intervalTag, params.ResponseCode, params.CacheHit)
+			}
+		}
+	}
+}
 
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(404)
