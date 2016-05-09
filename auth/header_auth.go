@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/tolexo/aero/cache"
-	"github.com/tolexo/aero/conf"
 	"github.com/tolexo/aero/db/orm"
 	"net/http"
 	"strconv"
@@ -14,6 +13,12 @@ import (
 
 const TIMESTAMP_VALIDITY int = 60000
 const APP_SECRET string = "TOLEXOANDROIDAPP"
+
+//authentication error codes
+const INVALID_REQUEST int = 601
+const INVALID_TIMESTAMP int = 602
+const INVALID_HASH int = 603
+const INVALID_APP_SESSION int = 604
 
 type AuthParams struct {
 	AppSession string
@@ -27,42 +32,59 @@ type Session struct {
 	ExpiryDate   time.Time
 }
 
-func GetSessionFromHeader(r *http.Request) (int, string) {
+//Authenticate request from tokens in header
+func AuthenticateFromHeader(r *http.Request) (bool, string) {
+	code, s := validateRequestHeader(r)
 
+	//if valid request, then set session details in header
+	if code == 200 {
+		r.Header.Set("ModSession", s)
+		return true, ""
+	}
+
+	errMessage := getAuthenticationError(code)
+
+	return false, string(errMessage[:])
+}
+
+func validateRequestHeader(r *http.Request) (int, string) {
 	a := getAuthParamsFromHeader(r)
 	code := CheckTimestamp(a)
 	if code != 200 {
 		return code, ""
 	}
+
 	code = CheckHash(a)
 	if code != 200 {
 		return code, ""
 	}
 
 	code, session := getSessionInfo(a)
-	se, err := json.Marshal(session)
-	if err == nil {
-		return 200, string(se[:])
+	if code != 200 {
+		return code, ""
 	}
 
-	return 604, ""
+	se, err := json.Marshal(session)
+	if err == nil {
+		return 200, string(se[:]) //user authenticated
+	}
 
+	return INVALID_REQUEST, ""
 }
 
 func getAuthParamsFromHeader(r *http.Request) (authParam AuthParams) {
-
-	if len(r.Header["Appsession"]) > 0 {
-		authParam.AppSession = r.Header["Appsession"][0]
+	if len(r.Header["Xappsession"]) > 0 {
+		authParam.AppSession = r.Header["Xappsession"][0]
 	} else {
 		authParam.AppSession = ""
 	}
-	if len(r.Header["Timestamp"]) > 0 {
-		authParam.Timestamp = r.Header["Timestamp"][0]
+	if len(r.Header["Xtimestamp"]) > 0 {
+		authParam.Timestamp = r.Header["Xtimestamp"][0]
 	} else {
 		authParam.Timestamp = ""
 	}
-	if len(r.Header["Hash"]) > 0 {
-		authParam.Hash = r.Header["Hash"][0]
+	if len(r.Header["Xhash"]) > 0 {
+		authParam.Hash = r.Header["Xhash"][0]
 	} else {
 		authParam.Hash = ""
 	}
@@ -74,7 +96,7 @@ func CheckTimestamp(a AuthParams) (code int) {
 	today := time.Now()
 	i, err := strconv.ParseInt(a.Timestamp, 10, 64)
 	if err != nil {
-		return 602 //error code for invalid timestamp
+		return INVALID_TIMESTAMP
 	}
 	t := time.Unix(i, 0)
 
@@ -84,21 +106,19 @@ func CheckTimestamp(a AuthParams) (code int) {
 	}
 
 	if duration < 0 || duration > TIMESTAMP_VALIDITY {
-		return 602 //error code for invalid timestamp
+		return INVALID_TIMESTAMP
 	}
 	return 200
 }
 
 func CheckHash(a AuthParams) (code int) {
 	data := a.Timestamp + "|" + a.AppSession + "|" + APP_SECRET
-	//hash := common.GetMD5Hash(data)	//TODO move md5 to common place
-
 	h := md5.New()
 	h.Write([]byte(data))
 	hash := hex.EncodeToString(h.Sum(nil))
 
 	if hash != a.Hash {
-		return 603 //error code for invalid hash
+		return INVALID_HASH
 	}
 	return 200
 
@@ -107,7 +127,6 @@ func CheckHash(a AuthParams) (code int) {
 func getSessionInfo(a AuthParams) (code int, s Session) {
 	s = Session{}
 	s, ok := getSessionDetailsFromCache(a.AppSession)
-
 	if ok {
 		return 200, s
 	}
@@ -118,17 +137,11 @@ func getSessionInfo(a AuthParams) (code int, s Session) {
 		return 200, s
 	}
 
-	return 604, s
+	return INVALID_APP_SESSION, s
 }
 
 func getSessionDetailsFromCache(appSession string) (s Session, ok bool) {
-	cType := conf.String("primary.type", "")
-	if cType != "redis" {
-		panic("redis configuration not found: " + cType)
-	}
-
-	c := cache.RedisFromConfig("primary")
-
+	c := cache.RedisFromConfig("session")
 	key := "APPSESSION-" + appSession
 	val, err := c.Get(key)
 	if err == nil {
@@ -141,11 +154,7 @@ func getSessionDetailsFromCache(appSession string) (s Session, ok bool) {
 }
 
 func saveSessionInCache(appSession string, s Session) {
-	cType := conf.String("primary.type", "")
-	if cType != "redis" {
-		panic("redis configuration not found: " + cType)
-	}
-	c := cache.RedisFromConfig("primary")
+	c := cache.RedisFromConfig("session")
 	key := "APPSESSION-" + appSession
 	val, _ := json.Marshal(s)
 	ttl := s.ExpiryDate.Sub(time.Now())
@@ -156,8 +165,45 @@ func getSessionDetailsFromDb(appSession string) (s Session, ok bool) {
 
 	db := orm.Get(false)
 
-	sql := "Select customer_id, customer_type, expiry_date from customer_auth where app_session = ? and status = 'active'"
+	sql := "Select customer_id, customer_type, expiry_date from customer_auth where app_session = ? and status = 'active' and expiry_date > now()"
 	db.Raw(sql, appSession).Row().Scan(&s.CustomerId, &s.CustomerType, &s.ExpiryDate)
 
-	return s, true
+	if s.CustomerType != "" {
+		return s, true
+	} else {
+		return s, false
+	}
+}
+
+func getAuthenticationError(errCode int) (out []byte) {
+	response := make(map[string]interface{})
+	if errCode != 200 {
+		e := make(map[string]interface{})
+		e["error_code"] = errCode
+		e["error_message"] = getErrorMessage(errCode)
+
+		response["status"] = false
+		response["response_code"] = INVALID_REQUEST
+		response["response_message"] = getErrorMessage(601)
+		response["error"] = e //specific error code
+
+	}
+	out, _ = json.Marshal(response)
+	return out
+}
+
+func getErrorMessage(errCode int) (errMsg string) {
+	switch errCode {
+	case INVALID_REQUEST:
+		errMsg = "Invalid Request"
+	case INVALID_TIMESTAMP:
+		errMsg = "Invalid Timestamp"
+	case INVALID_HASH:
+		errMsg = "Invalid Hash"
+	case INVALID_APP_SESSION:
+		errMsg = "Invalid App Session"
+	default:
+		errMsg = ""
+	}
+	return errMsg
 }
