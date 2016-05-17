@@ -20,16 +20,25 @@ const INVALID_TIMESTAMP int = 602
 const INVALID_HASH int = 603
 const INVALID_APP_SESSION int = 604
 
+//time format
+const DB_DATE_FORMAT string = "2006-01-02 15:04:05"
+
 type AuthParams struct {
 	AppSession string
 	Timestamp  string
 	Hash       string
 }
 
+type SessionInCache struct {
+	CustomerId   string `json:"customer_id"`
+	CustomerType string `json:"customer_type"`
+	ExpiryDate   string `json:"expiry_date"`
+}
+
 type Session struct {
-	CustomerId   int
-	CustomerType string
-	ExpiryDate   time.Time
+	CustomerId   int       `json:"customer_id"`
+	CustomerType string    `json:"customer_type"`
+	ExpiryDate   time.Time `json:"expiry_date"`
 }
 
 //Authenticate request from tokens in header
@@ -105,7 +114,10 @@ func CheckTimestamp(a AuthParams) (code int) {
 		duration = int(today.Sub(t).Minutes())
 	}
 
-	if duration < 0 || duration > TIMESTAMP_VALIDITY {
+	if duration < 0 { //convert time lapse to positive integer
+		duration = -duration
+	}
+	if duration > TIMESTAMP_VALIDITY {
 		return INVALID_TIMESTAMP
 	}
 	return 200
@@ -145,8 +157,15 @@ func getSessionDetailsFromCache(appSession string) (s Session, ok bool) {
 	key := "APPSESSION-" + appSession
 	val, err := c.Get(key)
 	if err == nil {
-		err := json.Unmarshal(val, &s)
+		sc := SessionInCache{}
+		err := json.Unmarshal(val, &sc)
 		if err == nil {
+			s.CustomerId, err = strconv.Atoi(sc.CustomerId)
+			s.CustomerType = sc.CustomerType
+			t, err := time.Parse(DB_DATE_FORMAT, sc.ExpiryDate)
+			if err == nil {
+				s.ExpiryDate = t
+			}
 			return s, true
 		}
 	}
@@ -156,7 +175,14 @@ func getSessionDetailsFromCache(appSession string) (s Session, ok bool) {
 func saveSessionInCache(appSession string, s Session) {
 	c := cache.RedisFromConfig("session")
 	key := "APPSESSION-" + appSession
-	val, _ := json.Marshal(s)
+
+	//create json compatible with php session
+	sc := SessionInCache{}
+	sc.CustomerId = strconv.Itoa(s.CustomerId)
+	sc.CustomerType = s.CustomerType
+	sc.ExpiryDate = s.ExpiryDate.Format(DB_DATE_FORMAT)
+
+	val, _ := json.Marshal(sc)
 	ttl := s.ExpiryDate.Sub(time.Now())
 	c.Set(key, val, ttl)
 }
@@ -168,7 +194,8 @@ func getSessionDetailsFromDb(appSession string) (s Session, ok bool) {
 	sql := "Select customer_id, customer_type, expiry_date from customer_auth where app_session = ? and status = 'active' and expiry_date > now()"
 	db.Raw(sql, appSession).Row().Scan(&s.CustomerId, &s.CustomerType, &s.ExpiryDate)
 
-	if s.CustomerType != "" {
+	if s.CustomerType != "" { //valid session
+
 		return s, true
 	} else {
 		return s, false
