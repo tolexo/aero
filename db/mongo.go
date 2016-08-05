@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/tolexo/aero/conf"
 	"gopkg.in/mgo.v2"
-	"time"
 )
 
 // create the mongo connection string
@@ -36,7 +35,7 @@ func getMongoConnStr(container string) (string, string) {
 }
 
 // validate the container string
-func validateContainer(container []string) (db string, err error) {
+func validateContainer(container ...string) (db string, err error) {
 	cLen := len(container)
 	if cLen == 0 {
 		container = append(container, "database.mongo")
@@ -55,15 +54,15 @@ func validateContainer(container []string) (db string, err error) {
 // create mongo connection
 func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error) {
 	var db string
-	if db, err = validateContainer(container); err == nil {
+	if db, err = validateContainer(container...); err == nil {
 		conn, mdb := getMongoConnStr(db)
 		if mdb == "" {
 			err = errors.New("mongo database name missing")
 		}
 		sess, err = mgo.Dial(conn)
-		sess.SetSyncTimeout(10 * time.Minute)
-		sess.SetSocketTimeout(30 * time.Minute)
-		sess.SetCursorTimeout(0)
+		// sess.SetSyncTimeout(10 * time.Minute)
+		// sess.SetSocketTimeout(30 * time.Minute)
+		// sess.SetCursorTimeout(0)
 	}
 	return
 }
