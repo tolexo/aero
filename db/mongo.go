@@ -36,7 +36,7 @@ func getMongoConnStr(container string) (string, string) {
 }
 
 // validate the container string
-func validateContainer(container ...string) (db string, err error) {
+func validateContainer(container []string) (db string, err error) {
 	cLen := len(container)
 	if cLen == 0 {
 		container = append(container, "database.mongo")
