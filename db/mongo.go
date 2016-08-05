@@ -52,6 +52,7 @@ func validateContainer(container ...string) (db string, err error) {
 }
 
 // create mongo connection
+// TODO introduce parameter for additional connection settings like socket timeout
 func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error) {
 	var db string
 	if db, err = validateContainer(container...); err == nil {
@@ -60,9 +61,6 @@ func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error
 			err = errors.New("mongo database name missing")
 		}
 		sess, err = mgo.Dial(conn)
-		// sess.SetSyncTimeout(10 * time.Minute)
-		// sess.SetSocketTimeout(30 * time.Minute)
-		// sess.SetCursorTimeout(0)
 	}
 	return
 }
