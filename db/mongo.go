@@ -52,7 +52,7 @@ func validateContainer(container ...string) (db string, err error) {
 }
 
 // create mongo connection
-// TODO introduce parameter for additional connection settings like socket timeout
+// TODO introduce parameter for connection additional settings like socket timeout
 func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error) {
 	var db string
 	if db, err = validateContainer(container...); err == nil {
