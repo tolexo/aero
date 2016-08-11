@@ -56,7 +56,8 @@ func validateContainer(container ...string) (db string, err error) {
 func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error) {
 	var db string
 	if db, err = validateContainer(container...); err == nil {
-		conn, mdb := getMongoConnStr(db)
+		var conn string
+		conn, mdb = getMongoConnStr(db)
 		if mdb == "" {
 			err = errors.New("mongo database name missing")
 		}
