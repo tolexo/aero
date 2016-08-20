@@ -76,18 +76,23 @@ func DoOrmInit(fn func(*gorm.DB)) {
 	ormInit = append(ormInit, fn)
 }
 
-//Get MySql connection
-func GetMySqlConn(writable bool) (gorm.DB, error) {
-	engines = make(map[string]gorm.DB)
-	if writable {
+func getDefaultConn(write bool) string {
+	if write {
 		initMaster()
-		return getOrm(connMySqlWrite)
+		return connMySqlWrite
 	} else {
 		initSlaves()
 		if connMySqlRead == nil || len(connMySqlRead) == 0 {
-			return getOrm(connMySqlWrite)
+			initMaster()
+			return connMySqlWrite
 		}
-		return getOrm(connMySqlRead[rand.Intn(len(connMySqlRead))])
-
+		return connMySqlRead[rand.Intn(len(connMySqlRead))]
 	}
+}
+
+//Get MySql connection
+func GetMySqlConn(writable bool) (gorm.DB, error) {
+	engines = make(map[string]gorm.DB)
+	connStr := getDefaultConn(writable)
+	return getOrm(connStr)
 }
