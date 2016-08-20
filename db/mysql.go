@@ -11,18 +11,10 @@ import (
 var engines map[string]gorm.DB
 var ormInit []func(*gorm.DB)
 
-func init() {
-	engines = make(map[string]gorm.DB)
-	initMySqlConn()
-}
-func initMySqlConn() {
-	initMaster()
-	initSlaves()
-}
 func initMaster() {
 	lookup := "database.master"
 	if conf.Exists(lookup) {
-		connMySqlWrite = GetMySqlConnString(lookup)
+		connMySqlWrite = getMySqlConnString(lookup)
 	}
 }
 func initSlaves() {
@@ -31,11 +23,11 @@ func initSlaves() {
 		slaves := conf.StringSlice(lookup, []string{})
 		connMySqlRead = make([]string, len(slaves))
 		for i, container := range slaves {
-			connMySqlRead[i] = GetMySqlConnString(container)
+			connMySqlRead[i] = getMySqlConnString(container)
 		}
 	}
 }
-func GetMySqlConnString(container string) string {
+func getMySqlConnString(container string) string {
 	if !conf.Exists(container) {
 		panic("Container for mysql configuration not found")
 	}
@@ -54,24 +46,7 @@ func GetMySqlConnString(container string) string {
 	)
 }
 
-func GetDefaultConn(write bool) string {
-	if write {
-		return connMySqlWrite
-	}
-
-	if connMySqlRead == nil || len(connMySqlRead) == 0 {
-		return connMySqlWrite
-	}
-
-	return connMySqlRead[rand.Intn(len(connMySqlRead))]
-}
-
-func GetMySqlConn(writable bool) (gorm.DB, error) {
-	connStr := GetDefaultConn(writable)
-	return GetOrm(connStr)
-}
-
-func GetOrm(connStr string) (ormObj gorm.DB, err error) {
+func getOrm(connStr string) (ormObj gorm.DB, err error) {
 	var ok bool
 
 	if ormObj, ok = engines[connStr]; ok {
@@ -99,4 +74,20 @@ func DoOrmInit(fn func(*gorm.DB)) {
 		ormInit = make([]func(*gorm.DB), 0)
 	}
 	ormInit = append(ormInit, fn)
+}
+
+//Get MySql connection
+func GetMySqlConn(writable bool) (gorm.DB, error) {
+	engines = make(map[string]gorm.DB)
+	if writable {
+		initMaster()
+		return getOrm(connMySqlWrite)
+	} else {
+		initSlaves()
+		if connMySqlRead == nil || len(connMySqlRead) == 0 {
+			return getOrm(connMySqlWrite)
+		}
+		return getOrm(connMySqlRead[rand.Intn(len(connMySqlRead))])
+
+	}
 }
