@@ -1,4 +1,4 @@
-package db
+package mysql
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 
 var engines map[string]gorm.DB
 var ormInit []func(*gorm.DB)
+var connMySqlWrite string
+var connMySqlRead []string
 
 func initMaster() {
 	lookup := "database.master"
