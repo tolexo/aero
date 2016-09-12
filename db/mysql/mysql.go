@@ -47,14 +47,17 @@ func getMySqlConnString(container string) string {
 }
 
 func getDefaultConn(write bool) string {
-	lenConnMySql := len(connMySqlRead)
-	if write == true || connMySqlRead == nil || lenConnMySql == 0{
-		initMaster()
-		return connMySqlWrite
-	} else {
-		initSlaves()
-		return connMySqlRead[rand.Intn(lenConnMySql)]
-	}
+	if write {
+ 		initMaster()
+  		return connMySqlWrite
+  	} else {
+  		initSlaves()
+ 		if connMySqlRead == nil || len(connMySqlRead) == 0 {
+ 			initMaster()
+ 			return connMySqlWrite
+ 		}
+ 		return connMySqlRead[rand.Intn(len(connMySqlRead))]
+  	}
 }
 
 //Get MySql connection
