@@ -8,8 +8,6 @@ import (
 	"net/url"
 )
 
-var engines map[string]gorm.DB
-var ormInit []func(*gorm.DB)
 var connMySqlWrite string
 var connMySqlRead []string
 
@@ -48,36 +46,6 @@ func getMySqlConnString(container string) string {
 	)
 }
 
-func getOrm(connStr string) (ormObj gorm.DB, err error) {
-	var ok bool
-
-	if ormObj, ok = engines[connStr]; ok {
-		return
-	}
-	// http://go-database-sql.org/accessing.html
-	// the sql.DB object is designed to be long-lived
-	if ormObj, err = gorm.Open("mysql", connStr); err == nil {
-		if ormInit != nil {
-			for _, fn := range ormInit {
-				fn(&ormObj)
-			}
-		}
-		engines[connStr] = ormObj
-		return
-
-	} else {
-		return
-	}
-}
-
-func DoOrmInit(fn func(*gorm.DB)) {
-	// TODO: use mutex
-	if ormInit == nil {
-		ormInit = make([]func(*gorm.DB), 0)
-	}
-	ormInit = append(ormInit, fn)
-}
-
 func getDefaultConn(write bool) string {
 	if write {
 		initMaster()
@@ -93,8 +61,10 @@ func getDefaultConn(write bool) string {
 }
 
 //Get MySql connection
-func GetMySqlConn(writable bool) (gorm.DB, error) {
-	engines = make(map[string]gorm.DB)
+func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	connStr := getDefaultConn(writable)
-	return getOrm(connStr)
+	if dbConn, err = gorm.Open("mysql", connStr); err != nil {
+		return
+	}
+	return
 }
