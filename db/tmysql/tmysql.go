@@ -1,4 +1,4 @@
-package mysql
+package tmysql
 
 import (
 	"fmt"
@@ -48,16 +48,16 @@ func getMySqlConnString(container string) string {
 
 func getDefaultConn(write bool) string {
 	if write {
- 		initMaster()
-  		return connMySqlWrite
-  	} else {
-  		initSlaves()
- 		if connMySqlRead == nil || len(connMySqlRead) == 0 {
- 			initMaster()
- 			return connMySqlWrite
- 		}
- 		return connMySqlRead[rand.Intn(len(connMySqlRead))]
-  	}
+		initMaster()
+		return connMySqlWrite
+	} else {
+		initSlaves()
+		if connMySqlRead == nil || len(connMySqlRead) == 0 {
+			initMaster()
+			return connMySqlWrite
+		}
+		return connMySqlRead[rand.Intn(len(connMySqlRead))]
+	}
 }
 
 //Get MySql connection
