@@ -62,6 +62,9 @@ func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error
 			err = errors.New("mongo database name missing")
 		}
 		sess, err = mgo.Dial(conn)
+		if err == nil {
+			sess.SetMode(mgo.Monotonic, true)
+		}
 	}
 	return
 }
