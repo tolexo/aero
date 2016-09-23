@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tolexo/aero/conf"
 	"gopkg.in/mgo.v2"
+	"time"
 )
 
 // create the mongo connection string
@@ -61,7 +62,7 @@ func GetMongoConn(container ...string) (sess *mgo.Session, mdb string, err error
 		if mdb == "" {
 			err = errors.New("mongo database name missing")
 		}
-		sess, err = mgo.Dial(conn)
+		sess, err = mgo.DialWithTimeout(conn, 20*time.Minute)
 		if err == nil {
 			sess.SetMode(mgo.Monotonic, true)
 		}
