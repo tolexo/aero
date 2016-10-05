@@ -20,24 +20,35 @@ type MonitorParams struct {
 	CacheHit     bool
 }
 
+func updateMetric(dataDogAgent *DataDogAgent, params MonitorParams, cacheMetric string, intervalTag []string) {
+
+	dataDogAgent.Count("throughput"+cacheMetric, 1, nil, 1)
+	dataDogAgent.Count(params.ServiceId+cacheMetric, 1, nil, 1)
+
+	dataDogAgent.Histogram("resptime"+cacheMetric, params.RespTime, nil, 1)
+	dataDogAgent.Histogram(params.ServiceId+cacheMetric+".resptime", params.RespTime, nil, 1)
+
+	dataDogAgent.Histogram("resptimeinterval"+cacheMetric, params.RespTime, intervalTag, 1)
+	dataDogAgent.Histogram(params.ServiceId+cacheMetric+".resptimeinterval", params.RespTime, intervalTag, 1)
+
+	if cacheMetric == "c" {
+		dataDogAgent.Count("cachehit", 1, nil, 1)
+		dataDogAgent.Count(params.ServiceId+".cachehit", 1, nil, 1)
+	}
+
+}
+
 func MonitorMe(params MonitorParams) {
 	if params.ServiceId != "" {
+
 		dataDogAgent := GetDataDogAgent()
-
-		dataDogAgent.Count("throughput", 1, nil, 1)
-		dataDogAgent.Count(params.ServiceId, 1, nil, 1)
-
-		dataDogAgent.Histogram("resptime", params.RespTime, nil, 1)
-		dataDogAgent.Histogram(params.ServiceId+".resptime", params.RespTime, nil, 1)
-
-		intervalTag := GetTimeIntervalTag(params.RespTime)
-		dataDogAgent.Histogram("resptimeinterval", params.RespTime, intervalTag, 1)
-		dataDogAgent.Histogram(params.ServiceId+".resptimeinterval", params.RespTime, intervalTag, 1)
+		cacheMetric := ".nc"
 
 		if params.CacheHit {
-			dataDogAgent.Count("cachehit", 1, nil, 1)
-			dataDogAgent.Count(params.ServiceId+".cachehit", 1, nil, 1)
+			cacheMetric = ".c"
 		}
+		intervalTag := GetTimeIntervalTag(params.RespTime)
+		updateMetric(dataDogAgent, params, cacheMetric, intervalTag)
 
 		if params.ResponseCode > 0 {
 			statusCode := FormatHttpStatusCode(int64(params.ResponseCode))
