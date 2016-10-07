@@ -69,14 +69,14 @@ func GetMongoConn(container string, param ...MgoOption) (sess *mgo.Session, mdb 
 		pLen := len(param)
 		if pLen == 0 {
 			sess, err = mgo.Dial(conn)
-		} if pLen == 1 {
+		} else if pLen == 1 {
 			if param[0].Timeout != time.Duration(0) {
 				sess, err = mgo.DialWithTimeout(conn, param[0].Timeout)
 			} else {
 				sess, err = mgo.Dial(conn)
 			}
 		} else {
-			err = errors.New("More than one MgoOption structures not supported")	
+			err = errors.New("More than one MgoOption structures not supported")
 		}
 
 		if err == nil {
