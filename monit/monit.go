@@ -37,6 +37,12 @@ func MonitorMe(params MonitorParams) {
 		if params.CacheHit {
 			dataDogAgent.Count("cachehit", 1, nil, 1)
 			dataDogAgent.Count(params.ServiceId+".cachehit", 1, nil, 1)
+			dataDogAgent.Histogram("resptime.c", params.RespTime, nil, 1)
+			dataDogAgent.Histogram(params.ServiceId+".resptime.c", params.RespTime, nil, 1)
+		} else {
+			dataDogAgent.Histogram("resptime.nc", params.RespTime, nil, 1)
+			dataDogAgent.Histogram(params.ServiceId+".resptime.nc", params.RespTime, nil, 1)
+
 		}
 
 		if params.ResponseCode > 0 {
