@@ -10,14 +10,16 @@ import (
 	"github.com/tolexo/aero/conf"
 )
 
+var (
+	logFp      *os.File
+	fileErr    error
+	logger     *log.Logger
+	prevDay    int
+	currentDay int
+)
+
 func PanicLogger(panicMsg interface{}) {
-	var (
-		logFp      *os.File
-		fileErr    error
-		logger     *log.Logger
-		prevDay    int
-		currentDay int
-	)
+
 	sTime := time.Now().UTC()
 	currentDay = sTime.Day()
 	if currentDay != prevDay {
