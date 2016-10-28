@@ -42,9 +42,11 @@ func PanicLogger(panicMsg interface{}) {
 			}
 			prevDay = currentDay
 		}
-		logger = log.New(logFp, "panic", log.Lshortfile)
-		logger.Print(string(debug.Stack()))
-		logger.Panic(panicMsg)
+		if logFp != nil {
+			logger = log.New(logFp, "panic", log.Lshortfile)
+			logger.Print(string(debug.Stack()))
+			logger.Panic(panicMsg)
+		}
 	} else {
 		panic(panicMsg)
 	}
