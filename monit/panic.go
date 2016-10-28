@@ -21,6 +21,21 @@ var (
 	syncOnce   sync.Once
 )
 
+func createPanicLog(sTime time.Time, panicMsg interface{}) {
+	path := conf.String("logs.panic_log", "panic_log")
+	path = fmt.Sprintf("%s_%d-%d-%d.log", path, sTime.Day(), sTime.Month(), sTime.Year())
+	if logFp, fileErr = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); fileErr != nil {
+		fmt.Println("Could not create the panic log file")
+		panic(panicMsg)
+	}
+}
+
+func logPanic(panicMsg interface{}) {
+	logger = log.New(logFp, "panic", log.Lshortfile)
+	logger.Print(string(debug.Stack()))
+	logger.Panic(panicMsg)
+}
+
 func PanicLogger(panicMsg interface{}) {
 
 	syncOnce.Do(func() {
@@ -34,21 +49,15 @@ func PanicLogger(panicMsg interface{}) {
 			if prevDay != 0 && logFp != nil {
 				logFp.Close()
 			}
-			path := conf.String("logs.panic_log", "panic_log")
-			path = fmt.Sprintf("%s_%d-%d-%d.log", path, sTime.Day(), sTime.Month(), sTime.Year())
-			if logFp, fileErr = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); fileErr != nil {
-				fmt.Println("Could not create the panic log file")
-				panic(panicMsg)
-			}
+			createPanicLog(sTime, panicMsg)
 			prevDay = currentDay
 		}
 		if logFp != nil {
-			logger = log.New(logFp, "panic", log.Lshortfile)
-			logger.Print(string(debug.Stack()))
-			logger.Panic(panicMsg)
+			logPanic(panicMsg)
 		} else {
-			fmt.Println("lost the pointer to the log file")
-			panic(panicMsg)
+			fmt.Println("lost the pointer to the log file, creating again")
+			createPanicLog(sTime, panicMsg)
+			logPanic(panicMsg)
 		}
 	} else {
 		panic(panicMsg)
