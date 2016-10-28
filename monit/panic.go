@@ -46,6 +46,9 @@ func PanicLogger(panicMsg interface{}) {
 			logger = log.New(logFp, "panic", log.Lshortfile)
 			logger.Print(string(debug.Stack()))
 			logger.Panic(panicMsg)
+		} else {
+			fmt.Println("lost the pointer to the log file")
+			panic(panicMsg)
 		}
 	} else {
 		panic(panicMsg)
