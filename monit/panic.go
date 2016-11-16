@@ -59,7 +59,7 @@ func PanicLogger(panicMsg interface{}, serviceID string, requestURI string) {
 		} else {
 			fmt.Println("lost the pointer to the log file, creating again")
 			createPanicLog(sTime, panicMsg)
-			logPanic(panicMsg)
+			logPanic(panicMsg, serviceID, requestURI)
 		}
 	} else {
 		panic(panicMsg)
