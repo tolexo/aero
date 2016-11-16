@@ -32,6 +32,7 @@ func createPanicLog(sTime time.Time, panicMsg interface{}) {
 
 func logPanic(panicMsg interface{}) {
 	logger = log.New(logFp, "panic", log.Lshortfile)
+	logFp.WriteString("\n")
 	logger.Print(string(debug.Stack()))
 	logger.Panic(panicMsg)
 }
