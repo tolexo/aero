@@ -30,15 +30,15 @@ func createPanicLog(sTime time.Time, panicMsg interface{}) {
 	}
 }
 
-func logPanic(panicMsg interface{}, serviceID string, requestURI string) {
-	logger = log.New(logFp, "panic", log.Lshortfile)
+func logPanic(panicMsg interface{}, serviceID, requestURI string, curTime time.Time) {
+	logger = log.New(logFp, "", log.Lshortfile)
 	logFp.WriteString("\n")
-	logFp.WriteString("serviceID: " + serviceID + " requestURI: " + requestURI + "\n")
+	logger.Print("serviceID: ", serviceID, "  requestURI: ", requestURI, "  Time: ", curTime)
 	logger.Print(string(debug.Stack()))
 	logger.Panic(panicMsg)
 }
 
-func PanicLogger(panicMsg interface{}, serviceID string, requestURI string) {
+func PanicLogger(panicMsg interface{}, serviceID, requestURI string, curTime time.Time) {
 
 	syncOnce.Do(func() {
 		isLog = conf.Bool("monitor.panic_log", false)
@@ -55,11 +55,11 @@ func PanicLogger(panicMsg interface{}, serviceID string, requestURI string) {
 			prevDay = currentDay
 		}
 		if logFp != nil {
-			logPanic(panicMsg, serviceID, requestURI)
+			logPanic(panicMsg, serviceID, requestURI, curTime)
 		} else {
 			fmt.Println("lost the pointer to the log file, creating again")
 			createPanicLog(sTime, panicMsg)
-			logPanic(panicMsg, serviceID, requestURI)
+			logPanic(panicMsg, serviceID, requestURI, curTime)
 		}
 	} else {
 		panic(panicMsg)
