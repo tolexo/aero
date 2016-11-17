@@ -30,15 +30,15 @@ func createPanicLog(sTime time.Time, panicMsg interface{}) {
 	}
 }
 
-func logPanic(panicMsg interface{}, serviceID, requestURI string, curTime time.Time) {
+func logPanic(panicMsg interface{}, serviceID string, requestURI string, curTime time.Time) {
 	logger = log.New(logFp, "", log.Lshortfile)
 	logFp.WriteString("\n")
-	logger.Print("serviceID: ", serviceID, "  requestURI: ", requestURI, "  Time: ", curTime)
+	logger.Print("Time: ", curTime, "  serviceID: ", serviceID, "  requestURI: ", requestURI)
 	logger.Print(string(debug.Stack()))
 	logger.Panic(panicMsg)
 }
 
-func PanicLogger(panicMsg interface{}, serviceID, requestURI string, curTime time.Time) {
+func PanicLogger(panicMsg interface{}, serviceID string, requestURI string, curTime time.Time) {
 
 	syncOnce.Do(func() {
 		isLog = conf.Bool("monitor.panic_log", false)
