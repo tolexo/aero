@@ -31,10 +31,8 @@ func createPanicLog(sTime time.Time, panicMsg interface{}) {
 }
 
 func logPanic(panicMsg interface{}, serviceID string, requestURI string, curTime time.Time) {
-	logger = log.New(logFp, "", log.Lshortfile)
-	logFp.WriteString("\n")
-	logger.Print("Time: ", curTime, "  serviceID: ", serviceID, "  requestURI: ", requestURI)
-	logger.Print(string(debug.Stack()))
+	logger = log.New(logFp, "\n", log.Lshortfile)
+	logger.Print("Time: ", curTime, "  serviceID: ", serviceID, "  requestURI: ", requestURI, "\n", string(debug.Stack()))
 	logger.Panic(panicMsg)
 }
 
