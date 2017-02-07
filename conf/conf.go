@@ -56,6 +56,14 @@ func Int(key string, defValue int) int {
 	}
 }
 
+func Float64(key string, defValue float64) float64 {
+	if Exists(key) {
+		return configuration.GetFloat64(key)
+	} else {
+		return defValue
+	}
+}
+
 func String(key string, defValue string) string {
 	if Exists(key) {
 		return configuration.GetString(key)
