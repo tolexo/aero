@@ -52,8 +52,8 @@ func MonitorMe(params MonitorParams) {
 		}
 
 		enablelog := conf.Bool("monitor.enablelog", false)
-		logTiming := conf.Float64("monitor.logTiming", 0.0)
-		if enablelog || (logTiming > 0.0 && params.RespTime > logTiming) {
+		slowLogTiming := conf.Float64("monitor.slowLogTiming", 0.0)
+		if enablelog || (slowLogTiming > 0.0 && params.RespTime > slowLogTiming) {
 			logfile := conf.String("monitor.filelog", "")
 			if logfile != "" {
 				t := time.Now()
