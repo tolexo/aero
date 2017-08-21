@@ -12,25 +12,31 @@ var connPostgresWrite string
 var connPostgresRead []string
 var validSSLMode = map[string]int{"disable": 1, "allow": 1, "prefer": 1, "require": 1, "verify-ca": 1, "verify-full": 1}
 
-func initMaster(sslMode string) {
+func initMaster(sslMode string) (err error) {
 	lookup := "database.master"
 	if conf.Exists(lookup) {
-		connPostgresWrite = getPostgresConnString(lookup, sslMode)
+		if connPostgresWrite, err = getPostgresConnString(lookup, sslMode); err != nil {
+			return
+		}
 	}
+	return
 }
-func initSlaves(sslMode string) {
+func initSlaves(sslMode string) (err error) {
 	lookup := "database.slaves"
 	if conf.Exists(lookup) {
 		slaves := conf.StringSlice(lookup, []string{})
 		connPostgresRead = make([]string, len(slaves))
 		for i, container := range slaves {
-			connPostgresRead[i] = getPostgresConnString(container, sslMode)
+			if connPostgresRead[i], err = getPostgresConnString(container, sslMode); err != nil {
+				return
+			}
 		}
 	}
+	return
 }
-func getPostgresConnString(container string, sslmode string) string {
+func getPostgresConnString(container string, sslmode string) (string, error) {
 	if !conf.Exists(container) {
-		panic("Container for postgres configuration not found")
+		return "", errors.New("Container for postgres configuration not found")
 	}
 
 	username := conf.String(container+".username", "")
@@ -38,32 +44,35 @@ func getPostgresConnString(container string, sslmode string) string {
 	host := conf.String(container+".host", "")
 	port := conf.String(container+".port", "")
 	db := conf.String(container+".db", "")
-	return fmt.Sprintf("host=%s port=%s sslmode=%s user=%s dbname=%s password=%s", host, port, sslmode, username, db, password)
+	return fmt.Sprintf("host=%s port=%s sslmode=%s user=%s dbname=%s password=%s", host, port, sslmode, username, db, password), nil
 }
 
-func getDefaultConn(write bool, sslModeVal ...string) string {
+func getDefaultConn(write bool, sslModeVal ...string) (string, error) {
+	var err error
 	sslMode := "disable"
 	if len(sslModeVal) > 0 {
 		sslMode = sslModeVal[0]
 	}
 	if write {
-		initMaster(sslMode)
-		return connPostgresWrite
+		err = initMaster(sslMode)
+		return connPostgresWrite, err
 	} else {
-		initSlaves(sslMode)
+		err = initSlaves(sslMode)
 		if connPostgresRead == nil || len(connPostgresRead) == 0 {
-			initMaster(sslMode)
-			return connPostgresWrite
+			err = initMaster(sslMode)
+			return connPostgresWrite, err
 		}
-		return connPostgresRead[rand.Intn(len(connPostgresRead))]
+		return connPostgresRead[rand.Intn(len(connPostgresRead))], err
 	}
 }
 
 //Get MySql connection
 func GetPostgresConn(writable bool, sslMode ...string) (dbConn gorm.DB, err error) {
 	if isValidSSLMode(sslMode...) == true {
-		connStr := getDefaultConn(writable, sslMode...)
-		fmt.Println(connStr)
+		var connStr string
+		if connStr, err = getDefaultConn(writable, sslMode...); err != nil {
+			return
+		}
 		if dbConn, err = gorm.Open("postgres", connStr); err != nil {
 			return
 		}
