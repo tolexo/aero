@@ -5,6 +5,9 @@ import (
 	"log"
 	"math/rand"
 	"reflect"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-pg/pg"
@@ -16,7 +19,18 @@ var (
 	dbPostgresRead  []*pg.DB
 	readDebug       Debug
 	writeDebug      Debug
+	QL              *QueryLogger
 )
+
+const (
+	GO_PG_PACKAGE = "/github.com/go-pg"
+)
+
+//Query log model contains method names and mux for locking
+type QueryLogger struct {
+	methodName map[string]bool
+	mux        sync.Mutex
+}
 
 //Debugger model contains DBConn on which query log will be created
 type Debug struct {
@@ -153,13 +167,72 @@ func Conn(writable bool) (dbConn *pg.DB, err error) {
 //Print postgresql query on terminal
 func (d *Debug) LogQuery() {
 	d.DBConn.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
-		if conf.Bool("log_query", false) == true {
-			if query, err := event.FormattedQuery(); err == nil {
-				log.Printf("\nFile: %v\nFunction: %v : %v\nQuery Execution Taken: %s\n%s\n",
-					event.File, event.Func, event.Line, time.Since(event.StartTime), query)
-			} else {
-				log.Println("LogQuery Error: " + err.Error())
+		if conf.Bool("debug_query.log_query", false) == true && QL != nil {
+			methodName := methodName(4)
+			if QL.methodName[methodName] == true {
+				if query, err := event.FormattedQuery(); err == nil {
+					log.Printf("\nFile: %v\nFunction: %v : %v\nQuery Execution Taken: %s\n%s\n\n",
+						event.File, event.Func, event.Line, time.Since(event.StartTime), query)
+				} else {
+					log.Println("LogQuery Error: " + err.Error())
+				}
 			}
 		}
 	})
+}
+
+//Get method name of function caller
+func methodName(depth int) (method string) {
+	for i := depth; ; i++ {
+		pc, file, _, ok := runtime.Caller(i)
+		if ok == false {
+			break
+		}
+		if strings.Contains(file, GO_PG_PACKAGE) {
+			continue
+		}
+		methodName := pkgMethod(pc)
+		if ind := strings.Index(methodName, "."); ind > 0 {
+			method = methodName[ind+1:]
+			break
+		}
+	}
+	return
+}
+
+//Get package method name and method pointer name from program counter
+func pkgMethod(pc uintptr) (method string) {
+	f := runtime.FuncForPC(pc)
+	if f == nil {
+		return ""
+	}
+	method = f.Name()
+	if ind := strings.LastIndex(method, "/"); ind > 0 {
+		method = method[ind+1:]
+	}
+	if ind := strings.Index(method, "."); ind > 0 {
+		method = method[ind+1:]
+	}
+	return
+}
+
+//Add methodName in queryLogger model
+func (q *QueryLogger) AddFunction(methodName string) {
+	q.mux.Lock()
+	q.methodName[methodName] = true
+	q.mux.Unlock()
+}
+
+//Remove methodName from queryLogger model
+func (q *QueryLogger) RemoveFunction(methodName string) {
+	q.mux.Lock()
+	if _, exists := q.methodName[methodName]; exists == true {
+		delete(q.methodName, methodName)
+	}
+	q.mux.Unlock()
+}
+
+//Create new object of query logger
+func NewQueryLogger() *QueryLogger {
+	return &QueryLogger{methodName: make(map[string]bool)}
 }
