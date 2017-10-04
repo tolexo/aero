@@ -2,13 +2,26 @@ package postgres
 
 import (
 	"errors"
+	"log"
+	"math/rand"
+	"reflect"
+	"time"
+
 	"github.com/go-pg/pg"
 	"github.com/tolexo/aero/conf"
-	"math/rand"
 )
 
-var dbPostgresWrite *pg.DB
-var dbPostgresRead []*pg.DB
+var (
+	dbPostgresWrite *pg.DB
+	dbPostgresRead  []*pg.DB
+	readDebug       Debug
+	writeDebug      Debug
+)
+
+//Debugger model contains DBConn on which query log will be created
+type Debug struct {
+	DBConn *pg.DB
+}
 
 //init master connection
 func initMaster() (err error) {
@@ -107,17 +120,46 @@ func getPostgresOptions(container string) (pgOption pg.Options, err error) {
 	return
 }
 
+//Start query logging
+func startQueryLog(debug *Debug, dbConn *pg.DB) {
+	if debug == nil {
+		debug = &Debug{DBConn: dbConn}
+		debug.LogQuery()
+	} else if reflect.DeepEqual(debug.DBConn, dbConn) == false {
+		debug.DBConn = dbConn
+		debug.LogQuery()
+	}
+}
+
 //Get postgres connection
 func Conn(writable bool) (dbConn *pg.DB, err error) {
 	if writable {
 		err = initMaster()
-		return dbPostgresWrite, err
+		dbConn = dbPostgresWrite
+		startQueryLog(&writeDebug, dbConn)
 	} else {
 		err = initSlaves()
 		if dbPostgresRead == nil || len(dbPostgresRead) == 0 {
 			err = initMaster()
-			return dbPostgresWrite, err
+			dbConn = dbPostgresWrite
+			startQueryLog(&writeDebug, dbConn)
 		}
-		return dbPostgresRead[rand.Intn(len(dbPostgresRead))], err
+		dbConn = dbPostgresRead[rand.Intn(len(dbPostgresRead))]
+		startQueryLog(&readDebug, dbConn)
 	}
+	return
+}
+
+//Print postgresql query on terminal
+func (d *Debug) LogQuery() {
+	d.DBConn.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
+		if conf.Bool("log_query", false) == true {
+			if query, err := event.FormattedQuery(); err == nil {
+				log.Printf("\nFile: %v\nFunction: %v : %v\nQuery Execution Taken: %s\n%s\n",
+					event.File, event.Func, event.Line, time.Since(event.StartTime), query)
+			} else {
+				log.Println("LogQuery Error: " + err.Error())
+			}
+		}
+	})
 }
