@@ -202,16 +202,14 @@ func methodName(depth int) (method string) {
 
 //Get package method name and method pointer name from program counter
 func pkgMethod(pc uintptr) (method string) {
-	f := runtime.FuncForPC(pc)
-	if f == nil {
-		return ""
-	}
-	method = f.Name()
-	if ind := strings.LastIndex(method, "/"); ind > 0 {
-		method = method[ind+1:]
-	}
-	if ind := strings.Index(method, "."); ind > 0 {
-		method = method[ind+1:]
+	if f := runtime.FuncForPC(pc); f != nil {
+		method = f.Name()
+		if ind := strings.LastIndex(method, "/"); ind > 0 {
+			method = method[ind+1:]
+		}
+		if ind := strings.Index(method, "."); ind > 0 {
+			method = method[ind+1:]
+		}
 	}
 	return
 }
