@@ -215,14 +215,14 @@ func pkgMethod(pc uintptr) (method string) {
 }
 
 //Add methodName in queryLogger model
-func (q *QueryLogger) AddFunction(methodName string) {
+func (q *QueryLogger) AddMethod(methodName string) {
 	q.mux.Lock()
 	q.methodName[methodName] = true
 	q.mux.Unlock()
 }
 
 //Remove methodName from queryLogger model
-func (q *QueryLogger) RemoveFunction(methodName string) {
+func (q *QueryLogger) RemoveMethod(methodName string) {
 	q.mux.Lock()
 	if _, exists := q.methodName[methodName]; exists == true {
 		delete(q.methodName, methodName)
