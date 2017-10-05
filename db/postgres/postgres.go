@@ -171,8 +171,12 @@ func (d *Debug) LogQuery() {
 			methodName := methodName(4)
 			if QL.methodName[methodName] == true {
 				if query, err := event.FormattedQuery(); err == nil {
-					log.Printf("\nFile: %v\nFunction: %v : %v\nQuery Execution Taken: %s\n%s\n\n",
-						event.File, event.Func, event.Line, time.Since(event.StartTime), query)
+					var queryError string
+					if event.Error != nil {
+						queryError = "\nQUERY ERROR: " + event.Error.Error()
+					}
+					log.Printf("\nFile: %v : %v\nFunction: %v\nQuery Execution Taken: %s\n%s%s\n\n",
+						event.File, event.Line, event.Func, time.Since(event.StartTime), query, queryError)
 				} else {
 					log.Println("LogQuery Error: " + err.Error())
 				}
