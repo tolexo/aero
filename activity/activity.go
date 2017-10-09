@@ -1,9 +1,7 @@
 package activity
 
 import (
-	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/tolexo/aero/activity/model"
@@ -12,22 +10,12 @@ import (
 )
 
 const (
-	MGO_CONN_REFRESH_COUNTER = 3
-	DB_CONTAINER             = "database.omni"
-)
-
-var (
-	once sync.Once
-	sess *mgo.Session
-	mdb  string
+	DB_CONTAINER = "database.omni"
 )
 
 //Log User activity
 func LogActivity(url string, body interface{},
 	resp reflect.Value, respCode int, respTime float64) {
-	var (
-		err error
-	)
 	apiDetail := model.APIDetail{
 		Url:      url,
 		Body:     body,
@@ -36,21 +24,11 @@ func LogActivity(url string, body interface{},
 		RespTime: respTime,
 		Time:     time.Now(),
 	}
-	once.Do(func() {
-		if sess, mdb, err = tmongo.GetMongoConn(DB_CONTAINER); err != nil {
-			fmt.Println("LogActivity: mongo connection error", err.Error())
-		}
-	})
 	go func() {
-		if err = sess.DB(mdb).C("activity").Insert(apiDetail); err != nil {
-			for counter := 0; counter < MGO_CONN_REFRESH_COUNTER; counter++ {
-				fmt.Println("LogActivity: Refreshing mongo connection", counter)
-				sess.Refresh()
-				err = sess.DB(mdb).C("activity").Insert(apiDetail)
-				if err == nil {
-					break
-				}
-			}
+		if sess, mdb, err := tmongo.GetMongoConn(DB_CONTAINER); err == nil {
+			defer sess.Close()
+			sess.SetSafe(&mgo.Safe{W: 0})
+			sess.DB(mdb).C("activity").Insert(apiDetail)
 		}
 	}()
 }
