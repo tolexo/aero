@@ -24,11 +24,9 @@ func LogActivity(url string, body interface{},
 		RespTime: respTime,
 		Time:     time.Now(),
 	}
-	go func() {
-		if sess, mdb, err := tmongo.GetMongoConn(DB_CONTAINER); err == nil {
-			defer sess.Close()
-			sess.SetSafe(&mgo.Safe{W: 0})
-			sess.DB(mdb).C("activity").Insert(apiDetail)
-		}
-	}()
+	if sess, mdb, err := tmongo.GetMongoConn(DB_CONTAINER); err == nil {
+		defer sess.Close()
+		sess.SetSafe(&mgo.Safe{W: 0})
+		sess.DB(mdb).C("activity").Insert(apiDetail)
+	}
 }
