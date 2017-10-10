@@ -157,9 +157,10 @@ func Conn(writable bool) (dbConn *pg.DB, err error) {
 			err = initMaster()
 			dbConn = dbPostgresWrite
 			startQueryLog(&writeDebug, dbConn)
+		} else {
+			dbConn = dbPostgresRead[rand.Intn(len(dbPostgresRead))]
+			startQueryLog(&readDebug, dbConn)
 		}
-		dbConn = dbPostgresRead[rand.Intn(len(dbPostgresRead))]
-		startQueryLog(&readDebug, dbConn)
 	}
 	return
 }
