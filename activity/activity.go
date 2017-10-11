@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/tolexo/aero/activity/model"
@@ -14,11 +15,11 @@ const (
 
 //Log User activity
 func LogActivity(url string, body interface{},
-	resp interface{}, respCode int, respTime float64) {
+	resp reflect.Value, respCode int, respTime float64) {
 	apiDetail := model.APIDetail{
 		Url:      url,
 		Body:     body,
-		Resp:     resp,
+		Resp:     resp.Interface(),
 		RespCode: respCode,
 		RespTime: respTime,
 		Time:     time.Now(),
