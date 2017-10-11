@@ -20,6 +20,8 @@ var (
 	readDebug       Debug
 	writeDebug      Debug
 	QL              *QueryLogger
+	MasterContainer = "database.master"
+	SlaveContainer  = "database.slaves"
 )
 
 const (
@@ -39,13 +41,12 @@ type Debug struct {
 
 //init master connection
 func initMaster() (err error) {
-	lookup := "database.master"
-	if conf.Exists(lookup) {
+	if conf.Exists(MasterContainer) {
 		if dbPostgresWrite != nil {
 			return
 		} else {
 			var postgresWriteOption pg.Options
-			if postgresWriteOption, err = getPostgresOptions(lookup); err == nil {
+			if postgresWriteOption, err = getPostgresOptions(MasterContainer); err == nil {
 				dbPostgresWrite = pg.Connect(&postgresWriteOption)
 			}
 		}
@@ -57,9 +58,8 @@ func initMaster() (err error) {
 
 //init slave connections
 func initSlaves() (err error) {
-	lookup := "database.slaves"
-	if conf.Exists(lookup) {
-		slaves := conf.StringSlice(lookup, []string{})
+	if conf.Exists(SlaveContainer) {
+		slaves := conf.StringSlice(SlaveContainer, []string{})
 		if dbPostgresRead == nil {
 			dbPostgresRead = make([]*pg.DB, len(slaves))
 		}
@@ -80,10 +80,9 @@ func initSlaves() (err error) {
 
 //create new master connection
 func CreateMaster() (err error) {
-	lookup := "database.master"
-	if conf.Exists(lookup) {
+	if conf.Exists(MasterContainer) {
 		var postgresWriteOption pg.Options
-		if postgresWriteOption, err = getPostgresOptions(lookup); err == nil {
+		if postgresWriteOption, err = getPostgresOptions(MasterContainer); err == nil {
 			dbPostgresWrite = pg.Connect(&postgresWriteOption)
 		}
 	} else {
@@ -94,9 +93,8 @@ func CreateMaster() (err error) {
 
 //create new slave connections
 func CreateSlave() (err error) {
-	lookup := "database.slaves"
-	if conf.Exists(lookup) {
-		slaves := conf.StringSlice(lookup, []string{})
+	if conf.Exists(SlaveContainer) {
+		slaves := conf.StringSlice(SlaveContainer, []string{})
 		if dbPostgresRead == nil {
 			dbPostgresRead = make([]*pg.DB, len(slaves))
 		}
@@ -163,6 +161,18 @@ func Conn(writable bool) (dbConn *pg.DB, err error) {
 		}
 	}
 	return
+}
+
+//Get postgres connection by container
+func ConnByContainer(container string) (*pg.DB, error) {
+	if strings.HasSuffix(container, "master") == true {
+		MasterContainer = container
+		return Conn(true)
+	} else if strings.HasSuffix(container, "slaves") == true {
+		SlaveContainer = container
+		return Conn(false)
+	}
+	return nil, errors.New("No master or slaves container found in: " + container)
 }
 
 //Print postgresql query on terminal
