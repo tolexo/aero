@@ -247,5 +247,5 @@ func (q *QueryLogger) RemoveMethod(methodName string) {
 
 //Create new object of query logger
 func NewQueryLogger() *QueryLogger {
-	return &QueryLogger{methodName: make(map[string]bool)}
+	QL = &QueryLogger{methodName: make(map[string]bool)}
 }
