@@ -13,16 +13,17 @@ const (
 )
 
 //Log User activity
-func LogActivity(url string, body interface{},
+func LogActivity(url string, serviceID string, body interface{},
 	resp interface{}, respCode int, respTime float64) {
 	sTime := time.Now()
 	apiDetail := model.APIDetail{
-		Url:      url,
-		Body:     body,
-		Resp:     resp,
-		RespCode: respCode,
-		RespTime: respTime,
-		Time:     sTime,
+		Url:       url,
+		ServiceID: serviceID,
+		Body:      body,
+		Resp:      resp,
+		RespCode:  respCode,
+		RespTime:  respTime,
+		Time:      sTime,
 	}
 	if sess, mdb, err := tmongo.GetMongoConn(DB_CONTAINER); err == nil {
 		defer sess.Close()
