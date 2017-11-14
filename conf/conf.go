@@ -2,8 +2,9 @@ package conf
 
 import (
 	"fmt"
-	"github.com/jacobstr/confer"
 	"path/filepath"
+
+	"github.com/jacobstr/confer"
 )
 
 // TODO:
@@ -13,10 +14,10 @@ import (
 var configuration *confer.Config
 
 func init() {
-	loadDefaultConfig()
+	LoadDefaultConfig()
 }
 
-func loadDefaultConfig() {
+func LoadDefaultConfig() {
 	configuration = confer.NewConfig()
 	seek := []string{
 		"production.yaml",
