@@ -72,15 +72,7 @@ func getDefaultConn(write bool) string {
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	connStr := getDefaultConn(writable)
-	if engines[connStr] == false {
-		dbConn, err = newConn(connStr)
-	}
-	return
-}
-
-//newConn open mysql
-func newConn(connStr string) (dbConn gorm.DB, err error) {
-	if dbConn, err = gorm.Open("mysql", connStr); err == nil {
+	if dbConn, err = gorm.Open("mysql", connStr); err == nil && engines[connStr] == false {
 		engines[connStr] = true
 		dbConn.DB().SetConnMaxLifetime(time.Minute * 5)
 		dbConn.DB().SetMaxIdleConns(10)
