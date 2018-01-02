@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/tolexo/aero/conf"
 )
 
 var (
-	engines map[string]gorm.DB
-
+	engines        map[string]bool
 	connMySqlWrite string
 	connMySqlRead  []string
 )
 
 func init() {
-	engines = make(map[string]gorm.DB)
+	engines = make(map[string]bool)
 }
 
 func initMaster() {
@@ -71,12 +71,20 @@ func getDefaultConn(write bool) string {
 
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
-	var connExists bool
 	connStr := getDefaultConn(writable)
-	if dbConn, connExists = engines[connStr]; connExists == false {
-		if dbConn, err = gorm.Open("mysql", connStr); err == nil {
-			engines[connStr] = dbConn
-		}
+	if engines[connStr] == false {
+		dbConn, err = newConn(connStr)
+	}
+	return
+}
+
+//newConn open mysql
+func newConn(connStr string) (dbConn gorm.DB, err error) {
+	if dbConn, err = gorm.Open("mysql", connStr); err == nil {
+		engines[connStr] = true
+		dbConn.DB().SetConnMaxLifetime(time.Minute * 5)
+		dbConn.DB().SetMaxIdleConns(10)
+		dbConn.DB().SetMaxOpenConns(200)
 	}
 	return
 }
