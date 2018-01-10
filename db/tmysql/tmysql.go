@@ -74,7 +74,7 @@ func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	connStr := getDefaultConn(writable)
 	if dbConn, err = gorm.Open("mysql", connStr); err == nil && engines[connStr] == false {
 		engines[connStr] = true
-		dbConn.DB().SetConnMaxLifetime(time.Minute * 5)
+		dbConn.DB().SetConnMaxLifetime(time.Second * 30)
 		dbConn.DB().SetMaxIdleConns(10)
 		dbConn.DB().SetMaxOpenConns(200)
 	}
