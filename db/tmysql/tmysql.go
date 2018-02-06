@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	engines        map[string]bool
+	engines        map[string]gorm.DB
 	connMySqlWrite string
 	connMySqlRead  []string
 )
 
 func init() {
-	engines = make(map[string]bool)
+	engines = make(map[string]gorm.DB)
 }
 
 func initMaster() {
@@ -69,14 +69,27 @@ func getDefaultConn(write bool) string {
 	}
 }
 
-//Get MySql connection
-func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
-	connStr := getDefaultConn(writable)
-	if dbConn, err = gorm.Open("mysql", connStr); err == nil && engines[connStr] == false {
-		engines[connStr] = true
+//newConn will create new database connection and initialize all database setting
+func newConn(connStr string) (dbConn gorm.DB, err error) {
+	if dbConn, err = gorm.Open("mysql", connStr); err == nil {
+		engines[connStr] = dbConn
 		dbConn.DB().SetConnMaxLifetime(time.Second * 30)
 		dbConn.DB().SetMaxIdleConns(10)
 		dbConn.DB().SetMaxOpenConns(200)
+	}
+	return
+}
+
+//Get MySql connection
+func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
+	var connExists bool
+	connStr := getDefaultConn(writable)
+	if dbConn, connExists = engines[connStr]; connExists == true {
+		if err = dbConn.DB().Ping(); err != nil {
+			dbConn, err = newConn(connStr)
+		}
+	} else {
+		dbConn, err = newConn(connStr)
 	}
 	return
 }
