@@ -2,14 +2,23 @@ package tmysql
 
 import (
 	"fmt"
-	"github.com/jinzhu/gorm"
-	"github.com/tolexo/aero/conf"
 	"math/rand"
 	"net/url"
+	"time"
+
+	"github.com/jinzhu/gorm"
+	"github.com/tolexo/aero/conf"
 )
 
-var connMySqlWrite string
-var connMySqlRead []string
+var (
+	engines        map[string]bool
+	connMySqlWrite string
+	connMySqlRead  []string
+)
+
+func init() {
+	engines = make(map[string]bool)
+}
 
 func initMaster() {
 	lookup := "database.master"
@@ -63,8 +72,11 @@ func getDefaultConn(write bool) string {
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	connStr := getDefaultConn(writable)
-	if dbConn, err = gorm.Open("mysql", connStr); err != nil {
-		return
+	if dbConn, err = gorm.Open("mysql", connStr); err == nil && engines[connStr] == false {
+		engines[connStr] = true
+		dbConn.DB().SetConnMaxLifetime(time.Second * 30)
+		dbConn.DB().SetMaxIdleConns(10)
+		dbConn.DB().SetMaxOpenConns(200)
 	}
 	return
 }
