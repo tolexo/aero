@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jinzhu/gorm"
 	"github.com/tolexo/aero/conf"
+	"github.com/tolexo/aero/db/orm"
 	"math/rand"
 	"net/url"
 )
@@ -58,6 +59,12 @@ func getDefaultConn(write bool) string {
 		}
 		return connMySqlRead[rand.Intn(len(connMySqlRead))]
 	}
+}
+
+//Get MySql connection
+func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
+	dbConn = orm.Get(writable)
+	return
 }
 
 //Get MySql connection
