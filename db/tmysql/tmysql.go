@@ -9,9 +9,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/tolexo/aero/conf"
 	"github.com/tolexo/aero/db/orm"
-
-	"github.com/jinzhu/gorm"
-	"github.com/tolexo/aero/conf"
 )
 
 var (
