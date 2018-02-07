@@ -12,6 +12,7 @@ import (
 
 var (
 	engines        map[string]gorm.DB
+	connContainer  map[string]string
 	connMySqlWrite string
 	connMySqlRead  []string
 )
@@ -36,11 +37,10 @@ func initSlaves() {
 		}
 	}
 }
-func getMySqlConnString(container string) string {
+func getMySqlConnString(container string) (connStr string) {
 	if !conf.Exists(container) {
 		panic("Container for mysql configuration not found")
 	}
-
 	username := conf.String(container+".username", "")
 	password := conf.String(container+".password", "")
 	host := conf.String(container+".host", "")
@@ -48,11 +48,13 @@ func getMySqlConnString(container string) string {
 	db := conf.String(container+".db", "")
 	timezone := conf.String(container+".timezone", "")
 
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=%s",
+	connStr = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=%s",
 		username, password,
 		host, port, db,
 		url.QueryEscape(timezone),
 	)
+	connContainer[connStr] = container
+	return
 }
 
 func getDefaultConn(write bool) string {
@@ -73,9 +75,13 @@ func getDefaultConn(write bool) string {
 func newConn(connStr string) (dbConn gorm.DB, err error) {
 	if dbConn, err = gorm.Open("mysql", connStr); err == nil {
 		engines[connStr] = dbConn
-		dbConn.DB().SetConnMaxLifetime(time.Second * 30)
-		dbConn.DB().SetMaxIdleConns(10)
-		dbConn.DB().SetMaxOpenConns(200)
+		container := connContainer[connStr]
+		connMaxLifetime := conf.Int(container+".maxlifetime", 10)
+		maxIdleConns := conf.Int(container+".maxidleconn", 10)
+		maxOpenConns := conf.Int(container+".maxopenconn", 200)
+		dbConn.DB().SetConnMaxLifetime(time.Second * time.Duration(connMaxLifetime))
+		dbConn.DB().SetMaxIdleConns(maxIdleConns)
+		dbConn.DB().SetMaxOpenConns(maxOpenConns)
 	}
 	return
 }
@@ -85,10 +91,9 @@ func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	var connExists bool
 	connStr := getDefaultConn(writable)
 	if dbConn, connExists = engines[connStr]; connExists == true {
-		if err = dbConn.DB().Ping(); err != nil {
-			dbConn, err = newConn(connStr)
-		}
-	} else {
+		err = dbConn.DB().Ping()
+	}
+	if connExists == false || err != nil {
 		dbConn, err = newConn(connStr)
 	}
 	return
