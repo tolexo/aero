@@ -19,6 +19,7 @@ var (
 
 func init() {
 	engines = make(map[string]gorm.DB)
+	connContainer = make(map[string]string)
 }
 
 func initMaster() {
@@ -77,6 +78,7 @@ func newConn(connStr string) (dbConn gorm.DB, err error) {
 		engines[connStr] = dbConn
 		container := connContainer[connStr]
 		connMaxLifetime := conf.Int(container+".maxlifetime", 10)
+		fmt.Println(connMaxLifetime)
 		maxIdleConns := conf.Int(container+".maxidleconn", 10)
 		maxOpenConns := conf.Int(container+".maxopenconn", 200)
 		dbConn.DB().SetConnMaxLifetime(time.Second * time.Duration(connMaxLifetime))
