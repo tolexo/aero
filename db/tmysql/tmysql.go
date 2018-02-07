@@ -8,6 +8,10 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/tolexo/aero/conf"
+	"github.com/tolexo/aero/db/orm"
+
+	"github.com/jinzhu/gorm"
+	"github.com/tolexo/aero/conf"
 )
 
 var (
@@ -84,6 +88,12 @@ func newConn(connStr string) (dbConn gorm.DB, err error) {
 		dbConn.DB().SetMaxIdleConns(maxIdleConns)
 		dbConn.DB().SetMaxOpenConns(maxOpenConns)
 	}
+	return
+}
+
+//Get MySql connection
+func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
+	dbConn = orm.Get(writable)
 	return
 }
 
