@@ -5,24 +5,24 @@ import (
 	"github.com/tolexo/aero/db"
 )
 
-var engines map[string]gorm.DB
+var engines map[string]*gorm.DB
 
 func init() {
-	engines = make(map[string]gorm.DB)
+	engines = make(map[string]*gorm.DB)
 }
 
-func Get(writable bool) gorm.DB {
+func Get(writable bool) *gorm.DB {
 	connStr := db.GetDefaultMySqlConn(writable)
 	return getOrm(connStr)
 }
 
-func GetFromConf(container string) gorm.DB {
+func GetFromConf(container string) *gorm.DB {
 	connStr := db.GetMySqlConnFromConfig(container)
 	return getOrm(connStr)
 }
 
-func getOrm(connStr string) gorm.DB {
-	var ormObj gorm.DB
+func getOrm(connStr string) *gorm.DB {
+	var ormObj *gorm.DB
 	var ok bool
 	var err error
 
@@ -34,7 +34,7 @@ func getOrm(connStr string) gorm.DB {
 	if ormObj, err = gorm.Open("mysql", connStr); err == nil {
 		if ormInit != nil {
 			for _, fn := range ormInit {
-				fn(&ormObj)
+				fn(ormObj)
 			}
 		}
 		engines[connStr] = ormObj

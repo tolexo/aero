@@ -2,11 +2,12 @@ package tmysql
 
 import (
 	"fmt"
+	"math/rand"
+	"net/url"
+
 	"github.com/jinzhu/gorm"
 	"github.com/tolexo/aero/conf"
 	"github.com/tolexo/aero/db/orm"
-	"math/rand"
-	"net/url"
 )
 
 var connMySqlWrite string
@@ -62,13 +63,13 @@ func getDefaultConn(write bool) string {
 }
 
 //Get MySql connection
-func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
+func GetMySqlTmpConn(writable bool) (dbConn *gorm.DB, err error) {
 	dbConn = orm.Get(writable)
 	return
 }
 
 //Get MySql connection
-func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
+func GetMySqlConn(writable bool) (dbConn *gorm.DB, err error) {
 	connStr := getDefaultConn(writable)
 	if dbConn, err = gorm.Open("mysql", connStr); err != nil {
 		return
