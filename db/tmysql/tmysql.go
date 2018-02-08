@@ -97,6 +97,7 @@ func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	var connExists bool
+	rand.Seed(time.Now().UnixNano())
 	connStr := getDefaultConn(writable)
 	if dbConn, connExists = engines[connStr]; connExists == true {
 		err = dbConn.DB().Ping()
