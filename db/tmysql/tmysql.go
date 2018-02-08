@@ -65,7 +65,7 @@ func getDefaultConn(write bool) string {
 		return connMySqlWrite
 	} else {
 		initSlaves()
-		if connMySqlRead == nil || len(connMySqlRead) == 0 {
+		if len(connMySqlRead) == 0 {
 			initMaster()
 			return connMySqlWrite
 		}
