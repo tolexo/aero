@@ -12,26 +12,24 @@ import (
 )
 
 var (
-	isDebuggerActive bool
-	StartLogging     bool
-	dbPostgresWrite  *pg.DB
-	dbPostgresRead   []*pg.DB
-	MasterContainer  = "database.master"
-	SlaveContainer   = "database.slaves"
+	debuggerStatus  map[*pg.DB]bool
+	StartLogging    bool
+	dbPostgresWrite *pg.DB
+	dbPostgresRead  []*pg.DB
+	MasterContainer = "database.master"
+	SlaveContainer  = "database.slaves"
 )
 
-const (
-	GO_PG_PACKAGE = "/github.com/go-pg"
-)
+func init() {
+	debuggerStatus = make(map[*pg.DB]bool)
+}
 
 //init master connection
 func initMaster() (err error) {
 	if conf.Exists(MasterContainer) {
 		if dbPostgresWrite != nil {
-			isDebuggerActive = true
 			return
 		} else {
-			isDebuggerActive = false
 			var postgresWriteOption pg.Options
 			if postgresWriteOption, err = getPostgresOptions(MasterContainer); err == nil {
 				dbPostgresWrite = pg.Connect(&postgresWriteOption)
@@ -48,10 +46,7 @@ func initSlaves() (err error) {
 	if conf.Exists(SlaveContainer) {
 		slaves := conf.StringSlice(SlaveContainer, []string{})
 		if dbPostgresRead == nil {
-			isDebuggerActive = false
 			dbPostgresRead = make([]*pg.DB, len(slaves))
-		} else {
-			isDebuggerActive = true
 		}
 		for i, container := range slaves {
 			if dbPostgresRead[i] == nil {
@@ -124,6 +119,7 @@ func getPostgresOptions(container string) (pgOption pg.Options, err error) {
 
 //Get postgres connection
 func Conn(writable bool) (dbConn *pg.DB, err error) {
+	rand.Seed(time.Now().UnixNano())
 	if writable {
 		err = initMaster()
 		dbConn = dbPostgresWrite
@@ -136,7 +132,10 @@ func Conn(writable bool) (dbConn *pg.DB, err error) {
 			dbConn = dbPostgresRead[rand.Intn(len(dbPostgresRead))]
 		}
 	}
-	logQuery(dbConn)
+	if debuggerStatus[dbConn] == false {
+		debuggerStatus[dbConn] = true
+		logQuery(dbConn)
+	}
 	return
 }
 
@@ -154,22 +153,19 @@ func ConnByContainer(container string) (*pg.DB, error) {
 
 //logQuery : Print postgresql query on terminal
 func logQuery(conn *pg.DB) {
-	if isDebuggerActive == false {
-		isDebuggerActive = true
-		conn.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
-			if StartLogging == true {
-				if query, err := event.FormattedQuery(); err == nil {
-					var queryError string
-					if event.Error != nil {
-						queryError = "\nQUERY ERROR: " + event.Error.Error()
-					}
-					fmt.Println("----DEBUGGER----")
-					fmt.Printf("\nFile: %v : %v\nFunction: %v\nQuery Execution Taken: %s\n%s%s\n\n",
-						event.File, event.Line, event.Func, time.Since(event.StartTime), query, queryError)
-				} else {
-					fmt.Println("Debugger Error: " + err.Error())
+	conn.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
+		if StartLogging == true {
+			if query, err := event.FormattedQuery(); err == nil {
+				var queryError string
+				if event.Error != nil {
+					queryError = "\nQUERY ERROR: " + event.Error.Error()
 				}
+				fmt.Println("----DEBUGGER----")
+				fmt.Printf("\nFile: %v : %v\nFunction: %v\nQuery Execution Taken: %s\n%s%s\n\n",
+					event.File, event.Line, event.Func, time.Since(event.StartTime), query, queryError)
+			} else {
+				fmt.Println("Debugger Error: " + err.Error())
 			}
-		})
-	}
+		}
+	})
 }
