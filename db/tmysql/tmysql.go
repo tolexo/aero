@@ -1,6 +1,8 @@
 package tmysql
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -110,12 +112,11 @@ func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 }
 
 //GetDirtyReadTx : get transaction with isolation level read uncommited
-func GetDirtyReadTx() (tx *gorm.DB, err error) {
+func GetDirtyReadTx() (tx *sql.Tx, err error) {
 	var dbConn gorm.DB
 	if dbConn, err = GetMySqlConn(false); err == nil {
-		if err = dbConn.Exec("set transaction isolation level read uncommitted;").Error; err == nil {
-			tx = dbConn.Begin()
-		}
+		tx, err = dbConn.DB().BeginTx(context.Background(),
+			&sql.TxOptions{Isolation: sql.LevelReadUncommitted})
 	}
 	return
 }
