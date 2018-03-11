@@ -13,13 +13,16 @@ import (
 
 var (
 	engines        map[string]gorm.DB
+	dirtyDB        map[string]gorm.DB
 	connContainer  map[string]string
 	connMySqlWrite string
 	connMySqlRead  []string
 )
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	engines = make(map[string]gorm.DB)
+	dirtyDB = make(map[string]gorm.DB)
 	connContainer = make(map[string]string)
 }
 
@@ -74,9 +77,9 @@ func getDefaultConn(write bool) string {
 }
 
 //newConn will create new database connection and initialize all database setting
-func newConn(connStr string) (dbConn gorm.DB, err error) {
+func newConn(connStr string, dbMap map[string]gorm.DB) (dbConn gorm.DB, err error) {
 	if dbConn, err = gorm.Open("mysql", connStr); err == nil {
-		engines[connStr] = dbConn
+		dbMap[connStr] = dbConn
 		container := connContainer[connStr]
 		connMaxLifetime := conf.Int(container+".maxlifetime", 10)
 		maxIdleConns := conf.Int(container+".maxidleconn", 10)
@@ -97,13 +100,33 @@ func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	var connExists bool
-	rand.Seed(time.Now().UnixNano())
 	connStr := getDefaultConn(writable)
 	if dbConn, connExists = engines[connStr]; connExists == true {
 		err = dbConn.DB().Ping()
 	}
 	if connExists == false || err != nil {
-		dbConn, err = newConn(connStr)
+		dbConn, err = newConn(connStr, engines)
+	}
+	return
+}
+
+//GetDirtyReadTx : get transaction with isolation level read uncommited
+func GetDirtyReadTx() (tx *gorm.DB, err error) {
+	var (
+		connExists bool
+		dbConn     gorm.DB
+	)
+	connStr := getDefaultConn(false)
+	if dbConn, connExists = dirtyDB[connStr]; connExists == true {
+		err = dbConn.DB().Ping()
+	}
+	if connExists == false || err != nil {
+		dbConn, err = newConn(connStr, dirtyDB)
+	}
+	if err == nil {
+		if err = dbConn.Exec("set transaction isolation level read uncommitted").Error; err == nil {
+			tx = dbConn.Begin()
+		}
 	}
 	return
 }
