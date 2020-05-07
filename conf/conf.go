@@ -23,6 +23,7 @@ func LoadDefaultConfig() {
 		"production.yaml",
 		"dev.yaml",
 		"config.yaml",
+		"docker_config.yaml",
 		"./config/production.yaml",
 		"./config/dev.yaml",
 		"./config/config.yaml",
