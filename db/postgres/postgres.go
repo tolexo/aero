@@ -15,13 +15,14 @@ import (
 )
 
 var (
-	dbPostgresWrite *pg.DB
-	dbPostgresRead  []*pg.DB
+	dbPostgresWrite map[string]*pg.DB
+	dbPostgresRead  map[string][]*pg.DB
 	readDebug       Debug
 	writeDebug      Debug
 	QL              *QueryLogger
-	MasterContainer = "database.master"
-	SlaveContainer  = "database.slaves"
+	masterContainer = "database.master"
+	slaveContainer  = "database.slaves"
+	connMutex       sync.Mutex
 )
 
 const (
@@ -39,15 +40,20 @@ type Debug struct {
 	DBConn *pg.DB
 }
 
+func init() {
+	dbPostgresWrite = make(map[string]*pg.DB)
+	dbPostgresRead = make(map[string][]*pg.DB)
+}
+
 //init master connection
 func initMaster() (err error) {
-	if conf.Exists(MasterContainer) {
-		if dbPostgresWrite != nil {
+	if conf.Exists(masterContainer) {
+		if dbPostgresWrite[masterContainer] != nil {
 			return
 		} else {
 			var postgresWriteOption pg.Options
-			if postgresWriteOption, err = getPostgresOptions(MasterContainer); err == nil {
-				dbPostgresWrite = pg.Connect(&postgresWriteOption)
+			if postgresWriteOption, err = getPostgresOptions(masterContainer); err == nil {
+				dbPostgresWrite[masterContainer] = pg.Connect(&postgresWriteOption)
 			}
 		}
 	} else {
@@ -58,18 +64,18 @@ func initMaster() (err error) {
 
 //init slave connections
 func initSlaves() (err error) {
-	if conf.Exists(SlaveContainer) {
-		slaves := conf.StringSlice(SlaveContainer, []string{})
-		if dbPostgresRead == nil {
-			dbPostgresRead = make([]*pg.DB, len(slaves))
+	if conf.Exists(slaveContainer) {
+		slaves := conf.StringSlice(slaveContainer, []string{})
+		if dbPostgresRead[slaveContainer] == nil {
+			dbPostgresRead[slaveContainer] = make([]*pg.DB, len(slaves))
 		}
 		for i, container := range slaves {
-			if dbPostgresRead[i] == nil {
+			if dbPostgresRead[slaveContainer][i] == nil {
 				var postgresReadOption pg.Options
 				if postgresReadOption, err = getPostgresOptions(container); err != nil {
 					break
 				}
-				dbPostgresRead[i] = pg.Connect(&postgresReadOption)
+				dbPostgresRead[slaveContainer][i] = pg.Connect(&postgresReadOption)
 			}
 		}
 	} else {
@@ -80,10 +86,10 @@ func initSlaves() (err error) {
 
 //create new master connection
 func CreateMaster() (err error) {
-	if conf.Exists(MasterContainer) {
+	if conf.Exists(masterContainer) {
 		var postgresWriteOption pg.Options
-		if postgresWriteOption, err = getPostgresOptions(MasterContainer); err == nil {
-			dbPostgresWrite = pg.Connect(&postgresWriteOption)
+		if postgresWriteOption, err = getPostgresOptions(masterContainer); err == nil {
+			dbPostgresWrite[masterContainer] = pg.Connect(&postgresWriteOption)
 		}
 	} else {
 		err = errors.New("Master config does not exists")
@@ -93,17 +99,17 @@ func CreateMaster() (err error) {
 
 //create new slave connections
 func CreateSlave() (err error) {
-	if conf.Exists(SlaveContainer) {
-		slaves := conf.StringSlice(SlaveContainer, []string{})
-		if dbPostgresRead == nil {
-			dbPostgresRead = make([]*pg.DB, len(slaves))
+	if conf.Exists(slaveContainer) {
+		slaves := conf.StringSlice(slaveContainer, []string{})
+		if dbPostgresRead[slaveContainer] == nil {
+			dbPostgresRead[slaveContainer] = make([]*pg.DB, len(slaves))
 		}
 		for i, container := range slaves {
 			var postgresReadOption pg.Options
 			if postgresReadOption, err = getPostgresOptions(container); err != nil {
 				break
 			}
-			dbPostgresRead[i] = pg.Connect(&postgresReadOption)
+			dbPostgresRead[slaveContainer][i] = pg.Connect(&postgresReadOption)
 		}
 	} else {
 		err = errors.New("Slaves config does not exists")
@@ -145,34 +151,46 @@ func startQueryLog(debug *Debug, dbConn *pg.DB) {
 
 //Get postgres connection
 func Conn(writable bool) (dbConn *pg.DB, err error) {
+	rand.Seed(time.Now().UnixNano())
 	if writable {
-		err = initMaster()
-		dbConn = dbPostgresWrite
-		startQueryLog(&writeDebug, dbConn)
-	} else {
-		err = initSlaves()
-		if dbPostgresRead == nil || len(dbPostgresRead) == 0 {
-			err = initMaster()
-			dbConn = dbPostgresWrite
+		if err = initMaster(); err == nil {
+			dbConn = dbPostgresWrite[masterContainer]
 			startQueryLog(&writeDebug, dbConn)
-		} else {
-			dbConn = dbPostgresRead[rand.Intn(len(dbPostgresRead))]
-			startQueryLog(&readDebug, dbConn)
+		}
+	} else {
+		if err = initSlaves(); err == nil {
+			if len(dbPostgresRead) == 0 {
+				if err = initMaster(); err == nil {
+					dbConn = dbPostgresWrite[masterContainer]
+					startQueryLog(&writeDebug, dbConn)
+				}
+			} else {
+				dbConn = dbPostgresRead[slaveContainer][rand.Intn(len(dbPostgresRead[slaveContainer]))]
+				startQueryLog(&readDebug, dbConn)
+			}
 		}
 	}
 	return
 }
 
 //Get postgres connection by container
-func ConnByContainer(container string) (*pg.DB, error) {
+func ConnByContainer(container string) (conn *pg.DB, err error) {
+	connMutex.Lock()
 	if strings.HasSuffix(container, "master") == true {
-		MasterContainer = container
-		return Conn(true)
+		oldContainer := masterContainer
+		masterContainer = container
+		conn, err = Conn(true)
+		masterContainer = oldContainer
 	} else if strings.HasSuffix(container, "slaves") == true {
-		SlaveContainer = container
-		return Conn(false)
+		oldContainer := slaveContainer
+		slaveContainer = container
+		conn, err = Conn(false)
+		slaveContainer = oldContainer
+	} else {
+		err = errors.New("No master or slaves container found in: " + container)
 	}
-	return nil, errors.New("No master or slaves container found in: " + container)
+	connMutex.Unlock()
+	return
 }
 
 //Print postgresql query on terminal
