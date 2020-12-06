@@ -1,6 +1,8 @@
 package tmysql
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -19,6 +21,7 @@ var (
 )
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	engines = make(map[string]gorm.DB)
 	connContainer = make(map[string]string)
 }
@@ -39,6 +42,7 @@ func initSlaves() {
 		}
 	}
 }
+
 func getMySqlConnString(container string) (connStr string) {
 	if !conf.Exists(container) {
 		panic("Container for mysql configuration not found")
@@ -97,13 +101,22 @@ func GetMySqlTmpConn(writable bool) (dbConn gorm.DB, err error) {
 //Get MySql connection
 func GetMySqlConn(writable bool) (dbConn gorm.DB, err error) {
 	var connExists bool
-	rand.Seed(time.Now().UnixNano())
 	connStr := getDefaultConn(writable)
 	if dbConn, connExists = engines[connStr]; connExists == true {
 		err = dbConn.DB().Ping()
 	}
 	if connExists == false || err != nil {
 		dbConn, err = newConn(connStr)
+	}
+	return
+}
+
+//GetDirtyReadTx : get transaction with isolation level read uncommited
+func GetDirtyReadTx() (tx *sql.Tx, err error) {
+	var dbConn gorm.DB
+	if dbConn, err = GetMySqlConn(false); err == nil {
+		tx, err = dbConn.DB().BeginTx(context.Background(),
+			&sql.TxOptions{Isolation: sql.LevelReadUncommitted})
 	}
 	return
 }
