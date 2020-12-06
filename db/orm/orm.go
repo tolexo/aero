@@ -5,10 +5,10 @@ import (
 	"github.com/tolexo/aero/db"
 )
 
-var engines map[string]gorm.DB
+var engines map[string]*gorm.DB
 
 func init() {
-	engines = make(map[string]gorm.DB)
+	engines = make(map[string]*gorm.DB)
 }
 
 func Get(writable bool) gorm.DB {
@@ -22,23 +22,23 @@ func GetFromConf(container string) gorm.DB {
 }
 
 func getOrm(connStr string) gorm.DB {
-	var ormObj gorm.DB
+	var ormObj *gorm.DB
 	var ok bool
 	var err error
 
 	if ormObj, ok = engines[connStr]; ok {
-		return ormObj
+		return *ormObj
 	}
 	// http://go-database-sql.org/accessing.html
 	// the sql.DB object is designed to be long-lived
 	if ormObj, err = gorm.Open("mysql", connStr); err == nil {
 		if ormInit != nil {
 			for _, fn := range ormInit {
-				fn(&ormObj)
+				fn(ormObj)
 			}
 		}
 		engines[connStr] = ormObj
-		return engines[connStr]
+		return *engines[connStr]
 	} else {
 		panic(err)
 	}
